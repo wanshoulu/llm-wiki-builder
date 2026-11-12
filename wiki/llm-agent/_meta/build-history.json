@@ -1,0 +1,32 @@
+[
+ {
+  "id": "bh_1789489019786_f42bd0",
+  "type": "build",
+  "status": "failed",
+  "started_at": "2026-09-15T16:16:59",
+  "model": "deepseek-v4-pro",
+  "source": "llm-agent-knowledge-outline.md",
+  "error": "用户取消生成",
+  "finished_at": "2026-09-15T16:21:59"
+ },
+ {
+  "id": "bh_1789489325868_bfa495",
+  "type": "update",
+  "status": "failed",
+  "started_at": "2026-09-15T16:22:05",
+  "model": "deepseek-v4-pro",
+  "source": "llm-agent-knowledge-outline.md",
+  "error": "用户取消生成",
+  "finished_at": "2026-09-15T16:24:12"
+ },
+ {
+  "id": "bh_1789489637467_ff0fd8",
+  "type": "update",
+  "status": "success",
+  "started_at": "2026-09-15T16:27:17",
+  "model": "",
+  "source": "llm-agent-knowledge-outline.md",
+  "finished_at": "2026-09-15T16:28:25",
+  "summary": "增量更新完成：28 个主题（原 28）"
+ }
+]

@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Wiki图谱化 | llm-wiki-builder</title>
+<style>
+/* 浅色系设计 */
+:root {
+  --bg: #f5f7fa;
+  --panel: #ffffff;
+  --line: #d1d5da;
+  --text: #2c3e50;
+  --muted: #6a737d;
+  --blue: #0366d6;
+  --green: #28a745;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: var(--bg); color: var(--text); font-family: Microsoft YaHei, Arial, sans-serif; }
+
+#app { display: flex; flex-direction: column; min-height: 100vh; }
+
+#header { padding: 16px 24px; background: var(--panel); border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; }
+#header h1 { font-size: 18px; font-weight: 600; }
+
+#content { flex: 1; overflow-y: auto; padding: 24px; background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf0 100%); }
+
+.tool-card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 20px; margin-bottom: 16px; }
+.card-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; }
+
+.btn { background: var(--panel); border: 1px solid var(--line); color: var(--text); padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+.btn:hover { border-color: var(--blue); }
+.btn.primary { background: var(--green); color: #fff; border: none; }
+
+input[type=text], select { background: var(--bg); border: 1px solid var(--line); color: var(--text); padding: 8px 12px; border-radius: 6px; font-size: 13px; }
+input:focus { outline: none; border-color: var(--blue); }
+
+.config-row { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; font-size: 13px; }
+.config-row label { color: var(--muted); }
+.config-row input[type=checkbox] { accent-color: var(--green); }
+
+#progress { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+#progressBar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; margin-bottom: 8px; }
+#progressFill { height: 100%; width: 0; background: var(--green); transition: width 0.2s; }
+#progressText { font-size: 12px; color: var(--muted); }
+
+#graph-stats { display: flex; gap: 16px; margin-bottom: 16px; }
+.stat-box { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 16px; flex: 1; text-align: center; }
+.stat-box strong { color: var(--blue); font-size: 18px; }
+.stat-box span { color: var(--muted); font-size: 12px; }
+
+#graph-view { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; flex: 1; display: flex; align-items: center; justify-content: center; min-height: 300px; }
+.empty-state { color: var(--muted); text-align: center; }
+
+.logs { background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 8px; font-size: 12px; color: var(--muted); margin-top: 8px; max-height: 150px; overflow-y: auto; }
+.log-line { padding: 2px 0; }
+.log-line.error { color: #d73a49; }
+.log-line.success { color: var(--green); }
+
+.back-link { display: inline-flex; align-items: center; gap: 4px; color: var(--blue); text-decoration: none; font-size: 13px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="header">
+    <h1>Wiki图谱化工具</h1>
+    <a href="../index.html" class="back-link">← 返回首页</a>
+  </div>
+
+  <div id="content">
+    <div class="tool-card">
+      <div class="card-title">📂 Wiki目录</div>
+      <div style="display: flex; gap: 8px;">
+        <input type="text" id="wikiDir" placeholder="Wiki目录路径,如: D:\project\vscode\wiki" style="flex: 1;" value="D:\project\vscode\wiki">
+        <button class="btn" onclick="browseDir()">浏览</button>
+      </div>
+    </div>
+
+    <div class="tool-card">
+      <div class="card-title">⚙️ 图谱化选项</div>
+      <div class="config-row">
+        <label><input type="checkbox" id="enableLLM"> 启用LLM语义增强</label>
+        <span style="font-size: 11px; color: var(--muted);">(Claude Haiku提取实体+关系)</span>
+      </div>
+      <div class="config-row">
+        <label><input type="checkbox" id="enableResolution"> 启用实体去重</label>
+        <span style="font-size: 11px; color: var(--muted);">(智能合并相似实体)</span>
+      </div>
+      <div class="config-row">
+        <label style="color: var(--text);">模型:</label>
+        <select id="modelSelect">
+          <option value="claude-haiku-4-5">Claude Haiku(快速)</option>
+          <option value="claude-sonnet-4-6">Claude Sonnet(高质量)</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+      <button class="btn primary" onclick="startGeneration()">🚀 开始图谱化</button>
+      <button class="btn" onclick="loadExistingGraph()">📂 加载图谱</button>
+    </div>
+
+    <div id="progress" style="display: none;">
+      <div id="progressBar"><div id="progressFill"></div></div>
+      <div id="progressText">准备中...</div>
+      <div class="logs" id="logs"></div>
+    </div>
+
+    <div id="graph-stats">
+      <div class="stat-box"><strong id="nodeCount">-</strong><br><span>节点</span></div>
+      <div class="stat-box"><strong id="edgeCount">-</strong><br><span>关系</span></div>
+      <div class="stat-box"><strong id="avgDegree">-</strong><br><span>平均度数</span></div>
+      <div class="stat-box"><strong id="orphanCount">-</strong><br><span>孤立节点</span></div>
+    </div>
+
+    <div id="graph-view">
+      <div class="empty-state">
+        <div style="font-size: 48px;">🕸️</div>
+        <div>点击"开始图谱化"构建知识图谱</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function browseDir() { alert('请手动输入Wiki目录路径'); }
+
+function startGeneration() {
+  const wikiDir = document.getElementById('wikiDir').value.trim();
+  if (!wikiDir) { alert('请输入Wiki目录路径'); return; }
+
+  const enableLLM = document.getElementById('enableLLM').checked;
+  const enableResolution = document.getElementById('enableResolution').checked;
+  const model = document.getElementById('modelSelect').value;
+
+  document.getElementById('progress').style.display = 'block';
+  document.getElementById('logs').innerHTML = '';
+
+  addLog('开始图谱化: ' + wikiDir, 'success');
+
+  const params = new URLSearchParams({ wikiDir, enableLLM, enableResolution, model });
+  const eventSource = new EventSource('/api/wiki-graph/generate?' + params.toString());
+
+  eventSource.addEventListener('phase', function(e) {
+    const data = JSON.parse(e.data);
+    document.getElementById('progressFill').style.width = (data.progress || 0) + '%';
+    document.getElementById('progressText').textContent = data.message || data.phase;
+
+    addLog(data.message || data.phase);
+  });
+
+  eventSource.addEventListener('graph-error', function(e) {
+    let data = {};
+    try { data = JSON.parse(e.data || '{}'); } catch {}
+    addLog('错误: ' + (data.message || '图谱化失败'), 'error');
+    eventSource.close();
+  });
+
+  eventSource.addEventListener('done', function(e) {
+    const data = JSON.parse(e.data);
+    document.getElementById('progressFill').style.width = '100%';
+    document.getElementById('progressText').textContent = data.message || '图谱化完成';
+    addLog(data.message || '图谱化完成', 'success');
+    eventSource.close();
+    document.getElementById('progress').style.display = 'none';
+
+    if (data.stats) {
+      document.getElementById('nodeCount').textContent = data.stats.totalNodes || '-';
+      document.getElementById('edgeCount').textContent = data.stats.totalEdges || '-';
+      document.getElementById('avgDegree').textContent = (data.stats.avgDegree || 0).toFixed(2);
+      document.getElementById('orphanCount').textContent = data.stats.orphanNodes || '-';
+    }
+  });
+
+  eventSource.onerror = function() {
+    addLog('连接已结束或中断，请检查是否已有完成/错误事件。', 'error');
+    eventSource.close();
+  };
+}
+
+function addLog(text, type) {
+  const logs = document.getElementById('logs');
+  const line = document.createElement('div');
+  line.className = 'log-line ' + (type || '');
+  line.textContent = new Date().toLocaleTimeString() + ' ' + text;
+  logs.appendChild(line);
+  logs.scrollTop = logs.scrollHeight;
+}
+
+function loadExistingGraph() {
+  const wikiDir = document.getElementById('wikiDir').value.trim();
+  if (!wikiDir) { alert('请输入Wiki目录路径'); return; }
+
+  fetch('/api/wiki-graph/data?wikiDir=' + encodeURIComponent(wikiDir))
+    .then(r => r.json())
+    .then(data => {
+      addLog('图谱加载成功', 'success');
+      if (data.stats) {
+        document.getElementById('nodeCount').textContent = data.stats.totalNodes || '-';
+        document.getElementById('edgeCount').textContent = data.stats.totalEdges || '-';
+        document.getElementById('avgDegree').textContent = (data.stats.avgDegree || 0).toFixed(2);
+        document.getElementById('orphanCount').textContent = data.stats.orphanNodes || '-';
+      }
+    })
+    .catch(e => addLog('加载失败: ' + e.message, 'error'));
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Wiki图谱化工具 | llm-wiki-builder</title>
+<style>
+:root{--bg:#f4f6f8;--panel:#ffffff;--line:#e5e7eb;--text:#1f2937;--muted:#6b7280;--blue:#2878b5;--green:#16a34a;--amber:#d97706;--red:#dc2626}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:Microsoft YaHei,Arial,sans-serif}
+#app{display:flex;height:100vh}
+#sidebar{width:280px;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column}
+#sidebar h2{padding:16px;font-size:15px;border-bottom:1px solid var(--line)}
+.nav-item{padding:12px 16px;cursor:pointer;border-bottom:1px solid rgba(48,54,61,0.3);transition:background 0.2s}
+.nav-item:hover{background:rgba(88,166,255,0.08)}
+.nav-item.active{background:rgba(88,166,255,0.12);border-left:3px solid var(--blue)}
+.nav-item .title{font-weight:600;font-size:13px;margin-bottom:4px}
+.nav-item .desc{font-size:11px;color:var(--muted)}
+#main{flex:1;display:flex;flex-direction:column;background:var(--bg)}
+#toolbar{padding:16px;background:var(--panel);border-bottom:1px solid var(--line)}
+.section{padding:16px;background:var(--bg);border-bottom:1px solid var(--line)}
+.section h3{font-size:13px;font-weight:600;margin-bottom:12px;color:var(--muted)}
+.input-row{display:flex;gap:8px;margin-bottom:8px}
+input[type=text]{flex:1;background:var(--bg);border:1px solid var(--line);color:var(--text);padding:8px 12px;border-radius:6px;font-size:13px}
+input[type=text]:focus{outline:none;border-color:var(--blue)}
+.btn{background:var(--bg);border:1px solid var(--line);color:var(--text);padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-family:inherit;transition:border-color 0.2s}
+.btn:hover{border-color:var(--blue)}
+.btn.primary{background:var(--blue);color:#fff;border:none}
+.btn.primary:hover{background:#4c93ff}
+.btn.danger{background:var(--red);color:#fff;border:none}
+.btn.danger:hover{background:#da3630}
+.config-row{display:flex;align-items:center;gap:12px;margin-bottom:8px;font-size:13px}
+.config-row label{color:var(--muted)}
+.config-row input[type=checkbox]{accent-color:var(--blue)}
+.config-row select{background:var(--bg);border:1px solid var(--line);color:var(--text);padding:4px 8px;border-radius:4px}
+#progressSection{padding:16px;background:rgba(255,255,255,0.95);border-bottom:1px solid var(--line)}
+#progressBar{height:6px;background:var(--line);border-radius:3px;overflow:hidden;margin-bottom:8px}
+#progressFill{height:100%;width:0;background:var(--blue);transition:width 0.2s}
+#progressText{font-size:12px;color:var(--muted)}
+#graphView{flex:1;display:flex;flex-direction:column;background:var(--bg)}
+#graphStats{padding:12px;background:var(--panel);border-bottom:1px solid var(--line);font-size:12px;color:var(--muted)}
+#graphStats .stat{display:inline-block;margin-right:12px}
+#graphStats .stat strong{color:var(--text)}
+#graphContainer{flex:1;position:relative;overflow:hidden}
+#graphFrame{width:100%;height:100%;border:none}
+.status-badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;margin-left:8px}
+.status-badge.running{background:rgba(63,185,80,0.2);color:var(--green)}
+.status-badge.done{background:rgba(88,166,255,0.2);color:var(--blue)}
+.status-badge.error{background:rgba(248,81,73,0.2);color:var(--red)}
+.empty-state{text-align:center;padding:60px;color:var(--muted)}
+.empty-state .icon{font-size:48px;margin-bottom:16px}
+.empty-state .text{font-size:14px}
+.logs{padding:8px;background:var(--bg);font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:4px;margin-top:8px;max-height:200px;overflow-y:auto}
+.logs .log-line{padding:2px 0}
+.logs .log-line.error{color:var(--red)}
+.logs .log-line.success{color:var(--green)}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="sidebar">
+    <h2>🧠 文档知识建模</h2>
+    <div class="nav-item" onclick="switchTo('wiki')">
+      <div class="title">📄 文档Wiki化</div>
+      <div class="desc">将文档转换为Wiki知识库</div>
+    </div>
+    <div class="nav-item active" onclick="switchTo('graph')">
+      <div class="title">🔗 Wiki图谱化</div>
+      <div class="desc">构建知识图谱(实体+关系)</div>
+    </div>
+  </div>
+
+  <div id="main">
+    <!-- 配置区 -->
+    <div id="toolbar">
+      <div class="section">
+        <h3>输入配置</h3>
+        <div class="input-row">
+          <input type="text" id="wikiDir" placeholder="Wiki目录路径(例如: D:\project\vscode\wiki)" value="D:\project\vscode\wiki">
+          <button class="btn" onclick="browseDir()">浏览</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>图谱化选项</h3>
+        <div class="config-row">
+          <label><input type="checkbox" id="enableLLM"> 启用LLM语义增强</label>
+          <span class="status-badge" id="llmStatus">未启用</span>
+        </div>
+        <div class="config-row">
+          <label><input type="checkbox" id="enableResolution"> 启用实体去重</label>
+          <span class="status-badge" id="resolutionStatus">未启用</span>
+        </div>
+        <div class="config-row">
+          <label>模型选择:</label>
+          <select id="modelSelect">
+            <option value="claude-haiku-4-5">Claude Haiku(快速低成本)</option>
+            <option value="claude-sonnet-4-6">Claude Sonnet(高质量)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="section" style="display:flex;gap:8px">
+        <button class="btn primary" onclick="startGeneration()">🚀 开始图谱化</button>
+        <button class="btn" onclick="loadExistingGraph()">📂 加载已有图谱</button>
+        <button class="btn danger" onclick="clearGraph()">🗑️ 清空</button>
+      </div>
+    </div>
+
+    <!-- 进度区 -->
+    <div id="progressSection" style="display:none">
+      <div id="progressBar"><div id="progressFill"></div></div>
+      <div id="progressText">准备中...</div>
+      <div class="logs" id="logs"></div>
+    </div>
+
+    <!-- 图谱展示区 -->
+    <div id="graphView">
+      <div id="graphStats">
+        <span class="stat"><strong id="nodeCount">-</strong>节点</span>
+        <span class="stat"><strong id="edgeCount">-</strong>关系</span>
+        <span class="stat"><strong id="avgDegree">-</strong>平均度数</span>
+        <span class="stat"><strong id="orphanCount">-</strong>孤立节点</span>
+      </div>
+      <div id="graphContainer">
+        <div class="empty-state" id="emptyState">
+          <div class="icon">🕸️</div>
+          <div class="text">点击"开始图谱化"构建知识图谱</div>
+        </div>
+        <iframe id="graphFrame" style="display:none"></iframe>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+var isGenerating = false;
+var eventSource = null;
+
+function switchTo(tool) {
+  if (tool === 'wiki') {
+    window.location.href = 'llm-wiki.html';
+  }
+}
+
+function browseDir() {
+  // 简化版,直接手动输入
+  alert('请手动输入Wiki目录路径,例如: D:\\project\\vscode\\wiki');
+}
+
+function updateStatus() {
+  var enableLLM = document.getElementById('enableLLM').checked;
+  var enableResolution = document.getElementById('enableResolution').checked;
+
+  document.getElementById('llmStatus').textContent = enableLLM ? '启用' : '未启用';
+  document.getElementById('llmStatus').className = 'status-badge ' + (enableLLM ? 'running' : '');
+
+  document.getElementById('resolutionStatus').textContent = enableResolution ? '启用' : '未启用';
+  document.getElementById('resolutionStatus').className = 'status-badge ' + (enableResolution ? 'running' : '');
+}
+
+document.getElementById('enableLLM').addEventListener('change', updateStatus);
+document.getElementById('enableResolution').addEventListener('change', updateStatus);
+
+function startGeneration() {
+  if (isGenerating) {
+    alert('图谱化正在进行中...');
+    return;
+  }
+
+  var wikiDir = document.getElementById('wikiDir').value.trim();
+  if (!wikiDir) {
+    alert('请输入Wiki目录路径');
+    return;
+  }
+
+  var enableLLM = document.getElementById('enableLLM').checked;
+  var enableResolution = document.getElementById('enableResolution').checked;
+  var model = document.getElementById('modelSelect').value;
+
+  isGenerating = true;
+  document.getElementById('progressSection').style.display = 'block';
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('graphFrame').style.display = 'none';
+  document.getElementById('logs').innerHTML = '';
+
+  addLog('开始图谱化: ' + wikiDir, 'success');
+  addLog('配置: LLM=' + enableLLM + ', Resolution=' + enableResolution + ', Model=' + model);
+
+  var params = new URLSearchParams({
+    wikiDir: wikiDir,
+    enableLLM: enableLLM,
+    enableResolution: enableResolution,
+    model: model
+  });
+
+  eventSource = new EventSource('/api/wiki-graph/generate?' + params.toString());
+
+  eventSource.addEventListener('phase', function(e) {
+    var data = JSON.parse(e.data);
+    handlePhase(data);
+  });
+
+  eventSource.onerror = function(e) {
+    addLog('连接中断或完成', 'error');
+    stopGeneration();
+  };
+
+  eventSource.addEventListener('done', function(e) {
+    var data = JSON.parse(e.data);
+    addLog('图谱化完成!', 'success');
+    stopGeneration();
+    loadGraph(data.outputPath, data.stats);
+  });
+}
+
+function handlePhase(data) {
+  var progress = data.progress || 0;
+  document.getElementById('progressFill').style.width = progress + '%';
+  document.getElementById('progressText').textContent = data.message || data.phase;
+
+  if (data.phase === 'preprocess') {
+    addLog('Phase 1: ' + data.message);
+  } else if (data.phase === 'llm-enhance') {
+    addLog('Phase 2: ' + data.message + ' (' + (data.processed || 0) + '/' + (data.total || 0) + ')');
+  } else if (data.phase === 'resolution') {
+    addLog('Phase 3: ' + data.message);
+  } else if (data.phase === 'error') {
+    addLog('错误: ' + data.message, 'error');
+    stopGeneration();
+  }
+}
+
+function addLog(text, type) {
+  var logs = document.getElementById('logs');
+  var line = document.createElement('div');
+  line.className = 'log-line ' + (type || '');
+  line.textContent = new Date().toLocaleTimeString() + ' ' + text;
+  logs.appendChild(line);
+  logs.scrollTop = logs.scrollHeight;
+}
+
+function stopGeneration() {
+  if (eventSource) {
+    eventSource.close();
+    eventSource = null;
+  }
+  isGenerating = false;
+}
+
+function loadGraph(graphPath, stats) {
+  if (stats) {
+    document.getElementById('nodeCount').textContent = stats.totalNodes || '-';
+    document.getElementById('edgeCount').textContent = stats.totalEdges || '-';
+    document.getElementById('avgDegree').textContent = (stats.avgDegree || 0).toFixed(2);
+    document.getElementById('orphanCount').textContent = stats.orphanNodes || '-';
+  }
+
+  // 加载图谱可视化
+  document.getElementById('emptyState').style.display = 'none';
+  var frame = document.getElementById('graphFrame');
+  frame.style.display = 'block';
+  frame.src = 'wiki-graph.html?id=wiki-enhanced';
+}
+
+function loadExistingGraph() {
+  var wikiDir = document.getElementById('wikiDir').value.trim();
+  if (!wikiDir) {
+    alert('请输入Wiki目录路径');
+    return;
+  }
+
+  addLog('加载已有图谱: ' + wikiDir);
+
+  fetch('/api/wiki-graph/data?wikiDir=' + encodeURIComponent(wikiDir))
+    .then(function(resp) {
+      if (!resp.ok) throw new Error('图谱不存在,请先生成');
+      return resp.json();
+    })
+    .then(function(data) {
+      addLog('图谱加载成功!', 'success');
+      loadGraph(null, data.stats);
+    })
+    .catch(function(e) {
+      addLog('加载失败: ' + e.message, 'error');
+    });
+}
+
+function clearGraph() {
+  document.getElementById('emptyState').style.display = 'block';
+  document.getElementById('graphFrame').style.display = 'none';
+  document.getElementById('graphStats').innerHTML = '<span class="stat"><strong>-</strong>节点</span><span class="stat"><strong>-</strong>关系</span><span class="stat"><strong>-</strong>平均度数</span><span class="stat"><strong>-</strong>孤立节点</span>';
+  document.getElementById('logs').innerHTML = '';
+  document.getElementById('progressSection').style.display = 'none';
+  addLog('已清空图谱', 'success');
+}
+
+// 初始化状态
+updateStatus();
+</script>
+</body>
+</html>

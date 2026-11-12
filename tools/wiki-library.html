@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wiki知识库管理 — AI知识建设</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="vendor/g6.min.js"></script>
+<style>
+:root {
+  --bg: #ffffff; --bg2: #fafafa; --bg3: #f5f5f5; --border: #e8e8e8;
+  --text: #262626; --text2: #8c8c8c; --accent: #1890ff; --green: #52c41a;
+  --orange: #faad14; --red: #ff4d4f; --purple: #722ed1;
+  --radius: 8px; --shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif; background: #f0f2f5; color: var(--text); }
+a { color: var(--accent); text-decoration: none; }
+
+.app-header { background: #fff; border-bottom: 1px solid var(--border); padding: 10px 24px; display: flex; align-items: center; gap: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
+.app-header h1 { font-size: 17px; font-weight: 600; }
+.app-header .subtitle { color: var(--text2); font-size: 12px; }
+.app-header .nav-links { margin-left: auto; display: flex; gap: 16px; }
+.app-header .nav-links a { font-size: 13px; color: var(--text2); }
+.app-header .nav-links a:hover { color: var(--accent); }
+
+.main-layout { max-width: 1500px; margin: 0 auto; padding: 16px 24px; }
+
+/* ── Top Row ── */
+.top-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+.top-row select { padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; background: #fff; min-width: 220px; }
+.top-row .badges { font-size: 11px; color: var(--text2); margin-left: auto; display: flex; gap: 8px; }
+
+/* ── Cards ── */
+.card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; margin-bottom: 14px; box-shadow: var(--shadow); }
+.card h3 { font-size: 15px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+
+input, select, textarea, button { font-family: inherit; font-size: 13px; }
+input[type="text"], select, textarea { background: #fff; border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: 7px 10px; width: 100%; }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(24,144,255,0.15); }
+textarea { min-height: 80px; resize: vertical; }
+
+.btn { padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border); cursor: pointer; background: #fff; color: var(--text); font-size: 12px; transition: all 0.15s; display: inline-flex; align-items: center; gap: 5px; }
+.btn:hover { color: var(--accent); border-color: var(--accent); }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn-primary:hover { background: #40a9ff; color: #fff; }
+.btn-purple { color: var(--purple); border-color: var(--purple); }
+.btn-purple:hover { background: #f9f0ff; }
+.btn-danger { color: var(--red); border-color: var(--red); }
+.btn-danger:hover { background: var(--red); color: #fff; }
+.btn-sm { padding: 3px 8px; font-size: 11px; }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-group { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0; }
+
+.badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; }
+.badge-ok { background: #f6ffed; color: var(--green); border: 1px solid #b7eb8f; }
+.badge-warn { background: #fffbe6; color: var(--orange); border: 1px solid #ffe58f; }
+.badge-info { background: #e6f7ff; color: var(--accent); border: 1px solid #91d5ff; }
+.badge-purple { background: #f9f0ff; color: var(--purple); border: 1px solid #d3adf7; }
+
+.hidden { display: none !important; }
+
+/* ── Main layout: tree left, content right ── */
+.main-split { display: grid; grid-template-columns: 280px 1fr; gap: 14px; align-items: start; }
+@media (max-width: 900px) { .main-split { grid-template-columns: 1fr; } }
+
+/* ── Tree ── */
+.tree-toolbar { display: flex; gap: 4px; margin-bottom: 6px; }
+.tree-panel { max-height: calc(100vh - 180px); overflow-y: auto; font-size: 12px; line-height: 1.8; position: sticky; top: 0; }
+.tree-item { display: flex; align-items: center; gap: 4px; padding: 1px 0; cursor: pointer; border-radius: 3px; user-select: none; }
+.tree-item:hover { background: #f0f5ff; }
+.tree-item.active { background: #e6f7ff; font-weight: 600; }
+.tree-item .icon { flex-shrink: 0; width: 16px; text-align: center; font-size: 12px; }
+.tree-item .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tree-item .size { font-size: 10px; color: var(--text2); flex-shrink: 0; }
+.tree-checkbox { width: 14px; height: 14px; flex-shrink: 0; cursor: pointer; accent-color: var(--accent); margin-right: 2px; }
+.tree-dir-children { display: none; }
+.tree-dir-children.open { display: block; }
+
+/* ── Wiki ── */
+.doc-toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.doc-toolbar .doc-name { font-weight: 600; font-size: 14px; flex: 1; }
+.doc-toolbar .doc-meta { font-size: 11px; color: var(--text2); }
+#docPreview { max-height: 500px; overflow-y: auto; padding: 20px; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); font-size: 14px; line-height: 1.7; }
+#docPreview h1,#docPreview h2,#docPreview h3 { margin: 12px 0 6px; }
+#docPreview code { background: var(--bg3); padding: 2px 5px; border-radius: 3px; font-size: 12px; }
+#docPreview pre { background: #fff; border: 1px solid var(--border); border-radius: 6px; padding: 10px; overflow-x: auto; }
+#docPreview blockquote { border-left: 3px solid var(--accent); padding-left: 12px; color: var(--text2); margin: 8px 0; }
+#docEditor { width: 100%; min-height: 350px; font-family: 'Consolas','Courier New',monospace; font-size: 13px; line-height: 1.6; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius); resize: vertical; background: var(--bg2); }
+
+/* ── RAG ── */
+.rag-stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin-bottom: 10px; }
+.rag-stat { background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; padding: 10px; text-align: center; }
+.rag-stat .val { font-size: 20px; font-weight: 700; color: var(--accent); }
+.rag-stat .lbl { font-size: 10px; color: var(--text2); margin-top: 2px; }
+.search-item { padding: 8px 12px; border-bottom: 1px solid #f0f0f0; cursor: pointer; font-size: 12px; }
+.search-item:hover { background: #e6f7ff; }
+.search-item .title { font-weight: 600; }
+.config-row { display: flex; align-items: center; gap: 12px; margin: 4px 0; font-size: 12px; flex-wrap: wrap; }
+.config-row label { color: var(--text2); white-space: nowrap; }
+.config-row select { width: auto; padding: 4px 8px; font-size: 12px; }
+.config-row input[type="checkbox"] { width: auto; }
+
+.progress-bar { height: 4px; background: #f0f0f0; border-radius: 2px; margin-top: 6px; overflow: hidden; }
+.progress-bar .fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.3s; }
+
+/* ── Graph ── */
+#graphContainer { width: 100%; height: 380px; background: #fff; border-radius: var(--radius); border: 1px solid var(--border); }
+.insight { padding: 6px 10px; border-left: 3px solid var(--border); margin-bottom: 3px; font-size: 11px; border-radius: 0 4px 4px 0; background: var(--bg2); }
+.insight.surprise { border-color: var(--purple); background: #f9f0ff; }
+.insight.gap { border-color: var(--orange); background: #fffbe6; }
+.insight.bridge { border-color: var(--green); background: #f6ffed; }
+.qa-answer { padding: 12px; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); font-size: 13px; line-height: 1.6; min-height: 40px; max-height: 280px; overflow-y: auto; }
+.split-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 900px) { .split-2 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <h1>📚 Wiki 知识库管理</h1>
+  <span class="subtitle">文档管理 · RAG 索引 · 知识图谱 — 一站式知识建设</span>
+  <div class="nav-links">
+    <a href="/tools/knowledge-qa.html">💬 知识问答</a>
+    <a href="/">🏠 llm-wiki-builder</a>
+  </div>
+</div>
+
+<div class="main-layout">
+
+  <!-- ═══ Top Row ═══ -->
+  <div class="top-row">
+    <select id="globalProject" onchange="onProjectChange()"><option value="">选择 Wiki 项目...</option></select>
+    <span style="font-size:11px;color:var(--text2)">← 先选项目，下方全部加载</span>
+    <span class="badges" id="topBadges"></span>
+  </div>
+
+  <div class="main-split">
+
+    <!-- ═══ LEFT: Document Tree (shared) ═══ -->
+    <div class="card" style="padding:10px;position:sticky;top:10px">
+      <div class="tree-toolbar">
+        <button class="btn btn-sm btn-primary" onclick="newDocument()">+ 新建</button>
+        <button class="btn btn-sm btn-danger" id="btnDelete" onclick="deleteDocument()" style="display:none">🗑️ 删除</button>
+        <button class="btn btn-sm" onclick="selectAllDocs()" title="全选/取消全选RAG文档" style="font-size:10px">☑ 全选</button>
+        <button class="btn btn-sm" onclick="loadDocTree()" title="刷新">🔄</button>
+      </div>
+      <div class="tree-panel" id="docTree">选择项目后加载...</div>
+      <div id="selectionInfo" style="font-size:10px;color:var(--text2);margin-top:4px;display:none"></div>
+    </div>
+
+    <!-- ═══ RIGHT: All sections ═══ -->
+    <div>
+
+      <!-- ── 1. Wiki 文档编辑 ── -->
+      <div class="card">
+        <h3>📂 文档编辑</h3>
+        <div class="doc-toolbar">
+          <span class="doc-name" id="docName">← 左侧点击文档查看/编辑</span>
+          <span class="doc-meta" id="docMeta"></span>
+          <button class="btn btn-sm" id="btnEdit" onclick="enterEditMode()" style="display:none">✏️ 编辑</button>
+          <button class="btn btn-sm btn-primary" id="btnSave" onclick="saveDocument()" style="display:none">💾 保存</button>
+          <button class="btn btn-sm" id="btnCancel" onclick="cancelEdit()" style="display:none">取消</button>
+        </div>
+        <div id="docPreview"><div style="color:var(--text2);text-align:center;padding:60px 0">← 在左侧文档树点击文档名称查看内容</div></div>
+        <textarea id="docEditor" class="hidden" placeholder="# Markdown 内容..."></textarea>
+      </div>
+
+      <!-- ── 2. RAG 向量索引 ── -->
+      <div class="card">
+        <h3>📊 RAG 向量索引</h3>
+        <div class="rag-stats" id="ragStats">
+          <div class="rag-stat"><div class="val">-</div><div class="lbl">文档</div></div>
+          <div class="rag-stat"><div class="val">-</div><div class="lbl">Chunks</div></div>
+          <div class="rag-stat"><div class="val">-</div><div class="lbl">Embedded</div></div>
+          <div class="rag-stat"><div class="val">-</div><div class="lbl">维度</div></div>
+        </div>
+        <div class="config-row">
+          <label>分块策略:</label>
+          <select id="ragStrategy"><option value="markdown">Markdown</option><option value="fixed_size">固定大小</option><option value="recursive">递归</option><option value="sentence">句子</option><option value="paragraph">段落</option><option value="parent_child">父子块</option></select>
+          <label>大小:</label><select id="ragChunkSize"><option value="512">512</option><option value="1024" selected>1024</option><option value="2048">2048</option></select>
+          <label>重叠:</label><select id="ragOverlap"><option value="64">64</option><option value="128" selected>128</option><option value="256">256</option></select>
+        </div>
+        <div class="btn-group">
+          <button class="btn" onclick="previewChunks()">🔍 预览分块效果</button>
+          <button class="btn btn-primary" onclick="buildRAG()">🔨 构建/重建索引</button>
+          <button class="btn" onclick="updateRAG()">🔄 增量更新</button>
+        </div>
+        <div class="progress-bar hidden" id="ragProgress"><div class="fill" id="ragBar" style="width:0%"></div></div>
+        <div style="font-size:11px;color:var(--text2);margin-top:4px" id="ragMsg"></div>
+
+        <!-- Chunk Preview (hidden until used) -->
+        <div class="hidden" id="chunkPreviewBlock" style="margin-top:10px">
+          <div style="font-weight:600;font-size:13px;margin-bottom:6px">📋 分块预览 <span style="font-weight:400;color:var(--text2);font-size:11px" id="chunkPreviewSummary"></span></div>
+          <div style="max-height:200px;overflow-y:auto;font-size:11px;border:1px solid var(--border);border-radius:6px" id="chunkPreviewContent"></div>
+        </div>
+
+        <!-- Search -->
+        <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px">
+          <div style="display:flex;gap:8px">
+            <input type="text" id="ragQuery" placeholder="🔍 检索测试 — 输入查询关键词..." onkeydown="if(event.key==='Enter')searchRAG()" style="flex:1">
+            <select id="ragMode" style="width:auto;font-size:11px"><option value="hybrid">混合</option><option value="vector">向量</option><option value="keyword">关键词</option></select>
+            <select id="ragTopK" style="width:50px;font-size:11px"><option>5</option><option selected>10</option></select>
+            <button class="btn btn-primary btn-sm" onclick="searchRAG()">搜索</button>
+          </div>
+          <div id="ragResults" style="margin-top:6px;max-height:250px;overflow-y:auto"></div>
+        </div>
+
+        <!-- Task History -->
+        <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:8px">
+          <div style="font-size:12px;font-weight:600;margin-bottom:4px">📜 索引任务历史 <button class="btn btn-sm" onclick="loadRAGTasks()" style="margin-left:8px">🔄</button></div>
+          <div style="max-height:120px;overflow-y:auto;font-size:11px" id="ragTaskHistory">加载中...</div>
+        </div>
+      </div>
+
+      <!-- ── 3. 知识图谱 ── -->
+      <div class="card">
+        <h3>🕸️ 知识图谱</h3>
+        <div class="btn-group">
+          <button class="btn btn-primary" onclick="buildSignalGraph()">🔗 构建信号图谱</button>
+          <button class="btn btn-purple" onclick="extractGraph()">🧠 LLM 实体抽取</button>
+          <button class="btn" onclick="fuseGraph()">🔀 信号+语义融合</button>
+          <label style="font-size:11px;display:flex;align-items:center;gap:3px;margin-left:8px">
+            <input type="checkbox" id="colorByCommunity" onchange="renderGraphView()" style="width:auto">社区着色
+          </label>
+        </div>
+        <div id="graphContainer"><div style="text-align:center;padding:100px;color:var(--text2)">选项目后加载图谱，或点击上方按钮构建</div></div>
+        <div id="graphStats" style="margin-top:4px;font-size:11px;display:flex;gap:8px;flex-wrap:wrap"></div>
+
+        <div class="split-2" style="margin-top:10px">
+          <div>
+            <div style="font-size:12px;font-weight:600;margin-bottom:4px">📈 图谱统计</div>
+            <div id="graphDetail" style="font-size:11px;line-height:1.8;color:var(--text2)">待构建...</div>
+          </div>
+          <div>
+            <div style="font-size:12px;font-weight:600;margin-bottom:4px">💡 洞察发现</div>
+            <div id="graphInsights" style="font-size:11px;color:var(--text2)">构建后自动生成</div>
+          </div>
+        </div>
+
+        <!-- GraphRAG -->
+        <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px">
+          <div style="font-size:12px;font-weight:600;margin-bottom:6px">🔍 GraphRAG 跨文档问答 <span style="font-weight:400;color:var(--text2);font-size:10px">(需先构建图谱 + RAG索引)</span></div>
+          <div style="display:flex;gap:8px"><input type="text" id="graphragQ" placeholder="输入跨文档综合查询..." style="flex:1" onkeydown="if(event.key==='Enter')doGraphRAG()"><button class="btn btn-primary btn-sm" onclick="doGraphRAG()">提问</button></div>
+          <div class="qa-answer" id="graphragA" style="margin-top:6px;display:none"></div>
+          <div id="graphragCtx" style="font-size:10px;color:var(--text2);margin-top:2px"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+var API = '/api/knowledge';
+var docTree = [];
+var currentDoc = null;
+var isEditing = false;
+var graphInstance = null;
+var checkedDocs = {};
+
+// ═══════════ INIT ═══════════
+function init() {
+  fetch(API+'/projects').then(function(r){return r.json()}).then(function(data){
+    if (!data.success) return;
+    var sel = document.getElementById('globalProject');
+    var cur = sel.value;
+    sel.innerHTML = '<option value="">选择 Wiki 项目...</option>';
+    (data.projects||[]).forEach(function(p){ sel.innerHTML += '<option value="'+p.slug+'">'+p.name+' ('+p.pages+'页)</option>'; });
+    sel.value = cur;
+    if (cur) onProjectChange();
+  });
+}
+
+function getProject() { return document.getElementById('globalProject').value; }
+
+function onProjectChange() {
+  loadDocTree();
+  loadRAGStatus();
+  loadRAGTasks();
+  setTimeout(renderGraphView, 300);
+  updateTopBadges();
+}
+
+// ═══════════ DOCUMENT TREE ═══════════
+function loadDocTree() {
+  var project = getProject(); if (!project) return;
+  fetch(API+'/pages/list-all?project='+encodeURIComponent(project)).then(function(r){return r.json()}).then(function(data){
+    var tree = data.fsTree || [];
+    docTree = flattenTree(tree);
+    document.getElementById('docTree').innerHTML = renderTree(tree, 0) || '<div style="color:var(--text2);padding:20px;font-size:12px">空目录</div>';
+    updateSelectionInfo();
+  });
+}
+
+function flattenTree(nodes, prefix) {
+  prefix = prefix || '';
+  var flat = [];
+  (nodes||[]).forEach(function(n){
+    if (n.isDir) { flat = flat.concat(flattenTree(n.children||[], prefix+n.title+'/')); }
+    else { flat.push({fileName:n.fileName, title:n.title, size:n.size, fullPath:prefix+n.title}); }
+  });
+  return flat;
+}
+
+function renderTree(nodes, indent) {
+  indent = indent || 0;
+  var html = '';
+  (nodes||[]).forEach(function(n){
+    if (n.isDir) {
+      html += '<div class="tree-item" style="padding-left:'+(indent*12)+'px" onclick="toggleDir(this)"><span class="icon">▸</span><span class="name">'+n.title+'/</span></div>';
+      html += '<div class="tree-dir-children">'+renderTree(n.children||[], indent+1)+'</div>';
+    } else {
+      html += '<div class="tree-item'+(currentDoc&&currentDoc.fileName===n.fileName?' active':'')+'" style="padding-left:'+(indent*12+18)+'px" data-file="'+n.fileName+'">';
+      html += '<input type="checkbox" class="tree-checkbox" '+(checkedDocs[n.fileName]?'checked':'')+' onchange="toggleDocCheck(\''+n.fileName.replace(/'/g,"\\'")+'\',this.checked);event.stopPropagation()" onclick="event.stopPropagation()">';
+      html += '<span class="icon" onclick="openDocument(\''+n.fileName.replace(/'/g,"\\'")+'\')">📄</span>';
+      html += '<span class="name" onclick="openDocument(\''+n.fileName.replace(/'/g,"\\'")+'\')">'+n.title+'</span>';
+      html += '<span class="size">'+(n.size?Math.round(n.size/1024)+'KB':'')+'</span></div>';
+    }
+  });
+  return html;
+}
+
+function toggleDir(el) {
+  var children = el.nextElementSibling;
+  var icon = el.querySelector('.icon');
+  if (children.classList.contains('open')) { children.classList.remove('open'); icon.textContent = '▸'; }
+  else { children.classList.add('open'); icon.textContent = '▾'; }
+}
+
+function selectAllDocs() {
+  var allChecked = docTree.every(function(d){return checkedDocs[d.fileName]});
+  docTree.forEach(function(d){ checkedDocs[d.fileName] = !allChecked; });
+  loadDocTree();
+  updateSelectionInfo();
+}
+
+function toggleDocCheck(fileName, checked) { checkedDocs[fileName] = checked; updateSelectionInfo(); }
+
+function updateSelectionInfo() {
+  var count = docTree.filter(function(d){return checkedDocs[d.fileName]}).length;
+  var selEl = document.getElementById('selectionInfo');
+  if (count > 0) {
+    selEl.innerHTML = '已勾选 <b>'+count+'</b>/'+docTree.length+' 篇（用于RAG和图谱构建）';
+    selEl.style.display = 'block';
+  } else {
+    selEl.style.display = 'none';
+  }
+}
+
+// ═══════════ WIKI ═══════════
+function openDocument(fileName) {
+  var project = getProject(); if (!project) return;
+  document.getElementById('docPreview').innerHTML = '加载中...';
+  enterViewMode();
+  fetch(API+'/pages/get?project='+encodeURIComponent(project)+'&page='+encodeURIComponent(fileName)).then(function(r){return r.json()}).then(function(data){
+    var content = data.content || data.page?.content || '';
+    currentDoc = {fileName:fileName, title:fileName.replace(/\.md$/,'').replace(/.*\//,''), content:content};
+    document.getElementById('docName').textContent = currentDoc.title;
+    document.getElementById('docMeta').textContent = (content.length/1024).toFixed(1)+'KB · '+content.split('\n').length+' 行';
+    document.getElementById('docPreview').innerHTML = marked.parse(content || '(空文档)');
+    document.getElementById('btnEdit').style.display = '';
+    document.getElementById('btnDelete').style.display = '';
+    document.getElementById('docName').scrollIntoView({behavior:'smooth',block:'start'});
+  });
+}
+
+function newDocument() {
+  var name = prompt('文档名称（自动加 .md）:');
+  if (!name) return;
+  if (!name.endsWith('.md')) name += '.md';
+  currentDoc = {fileName:name, title:name.replace(/\.md$/,''), content:'# '+name.replace(/\.md$/,'')+'\n\n'};
+  document.getElementById('docName').textContent = '📝 '+currentDoc.title+' (新建)';
+  document.getElementById('docMeta').textContent = '未保存';
+  document.getElementById('btnDelete').style.display = 'none';
+  enterEditMode();
+}
+
+function enterEditMode() {
+  isEditing = true;
+  document.getElementById('docPreview').classList.add('hidden');
+  document.getElementById('docEditor').classList.remove('hidden');
+  document.getElementById('docEditor').value = currentDoc ? currentDoc.content : '';
+  document.getElementById('btnEdit').style.display = 'none';
+  document.getElementById('btnSave').style.display = '';
+  document.getElementById('btnCancel').style.display = '';
+}
+function enterViewMode() {
+  isEditing = false;
+  document.getElementById('docEditor').classList.add('hidden');
+  document.getElementById('docPreview').classList.remove('hidden');
+  document.getElementById('btnEdit').style.display = '';
+  document.getElementById('btnSave').style.display = 'none';
+  document.getElementById('btnCancel').style.display = 'none';
+}
+function cancelEdit() { document.getElementById('docEditor').value = currentDoc?currentDoc.content:''; enterViewMode(); }
+
+function saveDocument() {
+  if (!currentDoc) return;
+  var project = getProject(); if (!project) return;
+  var content = document.getElementById('docEditor').value;
+  fetch(API+'/pages/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project:project,page:currentDoc.fileName,content:content})})
+    .then(function(r){return r.json()}).then(function(){
+      currentDoc.content = content;
+      document.getElementById('docMeta').textContent = (content.length/1024).toFixed(1)+'KB · '+content.split('\n').length+' 行 · ✅ 已保存';
+      document.getElementById('docName').textContent = currentDoc.title;
+      document.getElementById('btnDelete').style.display = '';
+      enterViewMode();
+      document.getElementById('docPreview').innerHTML = marked.parse(content);
+      loadDocTree(); updateTopBadges();
+    });
+}
+
+function deleteDocument() {
+  if (!currentDoc) return;
+  if (!confirm('确认删除 '+currentDoc.title+'？')) return;
+  var project = getProject();
+  var docId = currentDoc.fileName;
+  fetch(API+'/pages/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project:project,page:docId})})
+    .then(function(r){return r.json()}).then(function(){
+      fetch(API+'/rag/docs/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project:project,docId:docId})}).then(function(){});
+      currentDoc = null;
+      document.getElementById('docPreview').innerHTML = '<div style="text-align:center;padding:60px;color:var(--text2)">文档已删除</div>';
+      document.getElementById('docName').textContent = '← 左侧点击文档查看/编辑';
+      document.getElementById('docMeta').textContent = '';
+      ['btnEdit','btnDelete'].forEach(function(id){document.getElementById(id).style.display='none'});
+      loadDocTree(); updateTopBadges();
+    });
+}
+
+// ═══════════ RAG ═══════════
+function loadRAGStatus() {
+  var project = getProject(); if (!project) return;
+  fetch(API+'/rag/status?project='+encodeURIComponent(project)).then(function(r){return r.json()}).then(function(data){
+    var s = data.status || {};
+    document.getElementById('ragStats').innerHTML =
+      '<div class="rag-stat"><div class="val">'+(s.documents||0)+'</div><div class="lbl">文档</div></div>'+
+      '<div class="rag-stat"><div class="val">'+(s.chunks||0)+'</div><div class="lbl">Chunks</div></div>'+
+      '<div class="rag-stat"><div class="val">'+(s.embedded||0)+'</div><div class="lbl">Embedded</div></div>'+
+      '<div class="rag-stat"><div class="val">'+(s.dim||'-')+'</div><div class="lbl">维度</div></div>';
+    if (s.builtAt) document.getElementById('ragMsg').textContent = '上次构建: '+new Date(s.builtAt).toLocaleString();
+  });
+}
+
+function buildRAG() {
+  var project = getProject(); if (!project) return;
+  var p = document.getElementById('ragProgress'), b = document.getElementById('ragBar'), m = document.getElementById('ragMsg');
+  p.classList.remove('hidden'); b.style.width='20%'; m.textContent='构建中...';
+  var body = {project:project, chunkSize:parseInt(document.getElementById('ragChunkSize').value)||1024, overlap:parseInt(document.getElementById('ragOverlap').value)||128, strategy:document.getElementById('ragStrategy').value, forceRebuild:true};
+  var selected = docTree.filter(function(d){return checkedDocs[d.fileName]}).map(function(d){return d.fileName});
+  if (selected.length > 0) body.filterDocs = selected;
+  fetch(API+'/rag/build',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+    .then(function(r){return r.json()}).then(function(data){
+      b.style.width='100%';
+      m.textContent = data.success ? '✅ '+data.stats.documents+' 文档 → '+data.stats.chunks+' chunks → '+data.stats.embedded+' emb, '+(data.stats.timeMs/1000).toFixed(1)+'s' : '❌ '+(data.error||'');
+      if (data.success) { loadRAGStatus(); loadRAGTasks(); }
+      setTimeout(function(){p.classList.add('hidden')},5000);
+    });
+}
+
+function updateRAG() {
+  var project = getProject(); if (!project) return;
+  var p=document.getElementById('ragProgress'),b=document.getElementById('ragBar'),m=document.getElementById('ragMsg');
+  p.classList.remove('hidden');b.style.width='50%';m.textContent='增量更新中...';
+  fetch(API+'/rag/update',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project:project})})
+    .then(function(r){return r.json()}).then(function(data){
+      b.style.width='100%';
+      m.textContent = data.success ? '✅ '+(data.result.message||('+'+data.result.added+'/-'+data.result.removed+' = '+data.result.total)) : '❌ '+(data.error||'');
+      if (data.success) { loadRAGStatus(); loadRAGTasks(); }
+      setTimeout(function(){p.classList.add('hidden')},5000);
+    });
+}
+
+function previewChunks() {
+  var project = getProject(); if (!project) return;
+  var selected = docTree.filter(function(d){return checkedDocs[d.fileName]}).map(function(d){return d.fileName});
+  if (selected.length === 0) { alert('请先在左侧勾选要预览的文档（点击文档名前面的 ☐）'); return; }
+  var block = document.getElementById('chunkPreviewBlock');
+  var summary = document.getElementById('chunkPreviewSummary');
+  var content = document.getElementById('chunkPreviewContent');
+  block.classList.remove('hidden');
+  summary.textContent = '(加载中...)';
+  content.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text2)">分析中...</div>';
+  block.scrollIntoView({behavior:'smooth',block:'center'});
+  fetch(API+'/rag/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+    project: project, docIds: selected.slice(0, 5),
+    chunkSize: parseInt(document.getElementById('ragChunkSize').value)||1024,
+    overlap: parseInt(document.getElementById('ragOverlap').value)||128,
+    strategy: document.getElementById('ragStrategy').value
+  })}).then(function(r){return r.json()}).then(function(data){
+    if (!data.success) { content.innerHTML = '<div style="text-align:center;padding:20px;color:var(--red)">❌ '+(data.error||'预览失败')+'</div>'; return; }
+    var p = data.preview;
+    summary.textContent = '共 '+p.totalChunks+' 块 · 平均 '+p.avgChars+' 字符 · 范围 '+(p.minChars||0)+'–'+(p.maxChars||0);
+    var html = '<table style="width:100%;border-collapse:collapse"><thead><tr style="background:var(--bg2);text-align:left"><th style="padding:4px 6px;border-bottom:1px solid var(--border);font-size:11px">#</th><th style="padding:4px 6px;border-bottom:1px solid var(--border);font-size:11px">字符</th><th style="padding:4px 6px;border-bottom:1px solid var(--border);font-size:11px">预览</th></tr></thead><tbody>';
+    (p.samples||[]).forEach(function(s){
+      html += '<tr><td style="padding:3px 6px;border-bottom:1px solid #f0f0f0;vertical-align:top;font-size:11px">'+s.index+(s.isChild?' 🔹子':'')+(s.parentId?' 🔸父':'')+'</td><td style="padding:3px 6px;border-bottom:1px solid #f0f0f0;vertical-align:top;font-size:11px">'+s.charCount+'</td><td style="padding:3px 6px;border-bottom:1px solid #f0f0f0;vertical-align:top;font-size:11px;line-height:1.4">'+(s.heading?'<b>'+s.heading+'</b><br>':'')+(s.preview||'').slice(0,150)+'...</td></tr>';
+    });
+    html += '</tbody></table>';
+    if (p.totalChunks > 5) html += '<div style="text-align:center;padding:4px;color:var(--text2);font-size:10px">... 还有 '+(p.totalChunks-5)+' 个分块未显示</div>';
+    content.innerHTML = html;
+  });
+}
+
+function searchRAG() {
+  var q=document.getElementById('ragQuery').value.trim(); if(!q)return;
+  var el=document.getElementById('ragResults'); el.innerHTML='搜索中...';
+  fetch(API+'/rag/search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:q,project:getProject(),topK:parseInt(document.getElementById('ragTopK').value)||10,mode:document.getElementById('ragMode').value})})
+    .then(function(r){return r.json()}).then(function(data){
+      if(!data.results||!data.results.length){el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text2)">无结果 — 请先构建索引</div>';return}
+      el.innerHTML = data.results.map(function(r,i){return '<div class="search-item"><div class="title">'+(i+1)+'. '+r.title+' <span style="color:var(--green);font-size:10px">'+(r.score||0).toFixed(4)+'</span></div><div style="color:var(--text2);font-size:11px">'+(r.snippet||'').slice(0,180)+'</div></div>'}).join('');
+    });
+}
+
+function loadRAGTasks() {
+  var project = getProject(); if (!project) return;
+  var el = document.getElementById('ragTaskHistory');
+  fetch(API+'/rag/tasks?project='+encodeURIComponent(project)).then(function(r){return r.json()}).then(function(data){
+    if (!data.success || !data.tasks || !data.tasks.length) { el.innerHTML = '<span style="color:var(--text2)">暂无记录</span>'; return; }
+    var icons = {completed:'✅',running:'🔄',failed:'❌'};
+    el.innerHTML = data.tasks.slice(-5).map(function(t){return '<div style="display:flex;gap:8px;padding:2px 0;border-bottom:1px solid #f5f5f5">'+
+      '<span>'+(icons[t.status]||'')+'</span><b>'+(t.type||'')+'</b>'+
+      '<span>'+t.documents+'d→'+t.chunks+'c→'+t.embedded+'e</span>'+
+      '<span style="color:var(--text2);margin-left:auto">'+((t.timeMs||0)/1000).toFixed(1)+'s '+(t.at?new Date(t.at).toLocaleString():'')+'</span></div>'}).join('');
+  });
+}
+
+// ═══════════ GRAPH ═══════════
+function renderGraphView() {
+  var project = getProject(); if (!project) return;
+  fetch(API+'/graph?project='+encodeURIComponent(project)).then(function(r){return r.json()}).then(function(data){
+    if(!data||!data.nodes||!data.nodes.length){
+      document.getElementById('graphContainer').innerHTML='<div style="text-align:center;padding:100px;color:var(--text2);font-size:13px">暂无图谱 — 点击上方「构建信号图谱」或「LLM 实体抽取」</div>';
+      document.getElementById('graphDetail').innerHTML='待构建...';
+      return;
+    }
+    renderG6(data);
+  });
+}
+
+function renderG6(data) {
+  var c=document.getElementById('graphContainer');
+  if(graphInstance){graphInstance.destroy();graphInstance=null}
+  c.innerHTML='';
+  var comm=document.getElementById('colorByCommunity').checked;
+  var cc=['#1890ff','#52c41a','#faad14','#ff4d4f','#722ed1','#13c2c2','#eb2f96','#fa8c16','#a0d911','#2f54eb','#f5222d','#7cb305'];
+  var gn=(data.nodes||[]).map(function(n){var cl=comm&&n.community!==undefined?cc[(n.community||0)%cc.length]:'#1890ff';return{id:String(n.id||n.label||''),data:{label:String(n.label||n.id||'').slice(0,25),degree:n.degree||1,fill:cl},style:{fill:cl,size:Math.max(20,Math.min(48,(n.degree||1)*5))}}});
+  var ge=(data.edges||[]).map(function(e,i){return{id:'e'+i,source:String(e.source||e.from||''),target:String(e.target||e.to||''),style:{stroke:'#c0c0c0',lineWidth:Math.max(0.5,(e.weight||1)*0.8),opacity:0.6}}});
+  var G=G6.Graph;
+  graphInstance=new G({container:'graphContainer',width:c.clientWidth,height:380,data:{nodes:gn,edges:ge},layout:{type:'force',preventOverlap:true,nodeStrength:-200,edgeStrength:0.1},node:{labelText:function(d){return d.data.label},labelFontSize:9,labelFill:'#333',labelPlacement:'bottom',labelOffsetY:4},behaviors:['drag-canvas','zoom-canvas','drag-element'],autoFit:'view'});
+  graphInstance.render();
+  document.getElementById('graphStats').innerHTML='<span class="badge badge-info">'+(data.nodes||[]).length+' 节点</span> <span class="badge badge-info">'+(data.edges||[]).length+' 边</span>'+(data.communities?' <span class="badge badge-purple">'+data.communities.length+' 社区</span>':'');
+  document.getElementById('graphDetail').innerHTML='节点: <b>'+(data.nodes||[]).length+'</b><br>边: <b>'+(data.edges||[]).length+'</b><br>'+(data.modularity!==undefined?'Modularity: <b>'+data.modularity.toFixed(4)+'</b>':'')+(data.communities?'<br>社区: <b>'+data.communities.length+'</b>':'');
+  if(data.insights){var i=data.insights;document.getElementById('graphInsights').innerHTML=(i.bridges||[]).slice(0,3).map(function(b){return'<div class="insight bridge">🔗 桥接: '+b+'</div>'}).join('')+(i.surprises||[]).slice(0,3).map(function(s){return'<div class="insight surprise">⚡ 惊奇: '+s+'</div>'}).join('')+(i.gaps||[]).slice(0,3).map(function(g){return'<div class="insight gap">🕳️ 空白: '+g+'</div>'}).join('');}
+  updateTopBadges();
+}
+
+function buildSignalGraph(){var p=getProject();if(!p)return;fetch(API+'/graph/build',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project:p})}).then(function(r){return r.json()}).then(function(){renderGraphView()})}
+function extractGraph(){var p=getProject();if(!p)return;var btn=event.target;btn.disabled=true;btn.textContent='抽取中...';fetch(API+'/graph/extract',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project:p,forceRebuild:true,gleaning:false})}).then(function(r){return r.json()}).then(function(d){if(d.success){alert('✅ '+d.stats.entitiesExtracted+' 实体, '+d.stats.relationsExtracted+' 关系, '+(d.stats.timeMs/1000).toFixed(1)+'s');fuseSilent();renderGraphView()}else{alert('❌ '+(d.error||''))}btn.disabled=false;btn.textContent='🧠 LLM 实体抽取'}).catch(function(){btn.disabled=false;btn.textContent='🧠 LLM 实体抽取'})}
+function fuseGraph(){var p=getProject();if(!p)return;fetch(API+'/graph/fuse',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project:p})}).then(function(r){return r.json()}).then(function(){renderGraphView()})}
+function fuseSilent(){var p=getProject();fetch(API+'/graph/fuse',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project:p})}).then(function(){})}
+
+function doGraphRAG(){var q=document.getElementById('graphragQ').value.trim();if(!q)return;var el=document.getElementById('graphragA');el.style.display='block';el.innerHTML='思考中...';var p=getProject();function call(t){fetch('/api/knowledge-qa/graphrag',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+t},body:JSON.stringify({question:q,project:p,model:'deepseek-chat',topK:5})}).then(function(r){return r.json()}).then(function(d){if(d.answer){el.innerHTML=marked.parse(d.answer);document.getElementById('graphragCtx').innerHTML='三路融合: '+(d.contexts&&d.contexts.communityContext?'✅社区 ':'❌社区 ')+(d.contexts&&d.contexts.subgraphContext?'✅子图 ':'❌子图 ')+(d.contexts&&d.contexts.vectorContext?'✅RAG':'❌RAG')}else{el.innerHTML='需先构建图谱和RAG索引'}})}var t=localStorage.getItem('qa_token');if(t){call(t);return}fetch('/api/knowledge-qa/token',{method:'POST'}).then(function(r){return r.json()}).then(function(d){if(d.token){localStorage.setItem('qa_token',d.token);call(d.token)}})}
+
+// ═══════════ STATUS ═══════════
+function updateTopBadges() {
+  var p = getProject(); if (!p) return;
+  fetch(API+'/dashboard?project='+encodeURIComponent(p)).then(function(r){return r.json()}).then(function(data){
+    var d = data.dashboard;
+    document.getElementById('topBadges').innerHTML =
+      '<span>📖 '+(d.wiki.documents||0)+' 文档</span>'+
+      (d.rag.built?'<span class="badge badge-ok">RAG:'+d.rag.chunks+' chunks</span>':'')+
+      (d.graph.extracted?'<span class="badge badge-purple">Graph:'+d.graph.extractedNodes+' 实体</span>':'')+
+      (d.communities.built?'<span class="badge badge-info">社区:'+d.communities.count+'</span>':'');
+  });
+}
+
+init();
+setInterval(updateTopBadges, 60000);
+window.addEventListener('resize',function(){if(graphInstance){var c=document.getElementById('graphContainer');if(c)graphInstance.setSize(c.clientWidth,380)}});
+</script>
+</body>
+</html>

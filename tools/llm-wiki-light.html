@@ -1,0 +1,1445 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>LLM Wiki 工具 | llm-wiki-builder</title>
+<style>
+:root {
+  --bg: #ffffff;
+  --panel: #ffffff;
+  --line: #e9e9e7;
+  --text: #191919;
+  --muted: #6f6e69;
+  --blue: #191919;
+  --green: #16a34a;
+  --amber: #d97706;
+  --red: #dc2626;
+  --purple: #7c3aed;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+#app { display: flex; height: 100vh; }
+
+/* 侧边栏 */
+#sidebar {
+  width: 240px;
+  background: #f7f7f5;
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+}
+#sidebar-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--line);
+  font-weight: 700;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+#sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+.nav-item {
+  padding: 10px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 2px;
+  transition: background 0.15s;
+}
+.nav-item:hover { background: rgba(0,0,0,0.04); }
+.nav-item.active { background: rgba(0,0,0,0.08); color: var(--text); font-weight: 600; }
+.nav-item .icon { font-size: 18px; }
+
+/* 主内容区 */
+#main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+#header {
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f7f7f5;
+}
+#header h1 { font-size: 20px; font-weight: 600; }
+#content { flex: 1; overflow-y: auto; padding: 24px; }
+
+/* 卡片 */
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+.card-header {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 按钮 */
+.btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 13px;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s;
+}
+.btn:hover { border-color: var(--blue); }
+.btn.primary { background: var(--text); border-color: var(--text); color: #fff; }
+.btn.primary:hover { opacity: 0.85; }
+.btn.success { background: var(--green); border-color: var(--green); color: #fff; }
+.btn.success:hover { opacity: 0.85; }
+.btn.danger { background: var(--red); border-color: var(--red); color: #fff; }
+.btn.danger:hover { opacity: 0.85; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* 输入框 */
+input[type="text"], input[type="search"], select {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  font-family: inherit;
+  width: 100%;
+}
+input:focus, select:focus { outline: none; border-color: var(--blue); }
+
+/* 项目列表 */
+.project-list { display: grid; gap: 12px; }
+.project-item {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.project-item:hover { border-color: var(--blue); }
+.project-item.selected { border-color: var(--text); background: #f7f7f5; }
+.project-item .name { font-weight: 600; font-size: 15px; margin-bottom: 4px; }
+.project-item .path { color: var(--muted); font-size: 12px; margin-bottom: 8px; }
+.project-item .stats { display: flex; gap: 16px; font-size: 12px; color: var(--muted); }
+.project-item .stat { display: flex; align-items: center; gap: 4px; }
+.project-item .stat-value { color: var(--text); font-weight: 500; }
+
+/* 文件树 */
+.file-tree { font-size: 13px; }
+.file-item {
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.file-item:hover { background: rgba(0,0,0,0.04); }
+.file-item.selected { background: rgba(0,0,0,0.08); }
+.file-item .icon { width: 16px; text-align: center; }
+.file-item.folder .icon { color: var(--amber); }
+.file-item.file .icon { color: var(--blue); }
+.file-item .checkbox { margin-right: 4px; }
+
+/* 进度条 */
+.progress-bar {
+  height: 8px;
+  background: var(--line);
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 12px 0;
+}
+.progress-fill {
+  height: 100%;
+  background: var(--blue);
+  transition: width 0.3s;
+}
+
+/* 搜索结果 */
+.search-results { display: grid; gap: 8px; }
+.search-item {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.search-item:hover { border-color: var(--blue); }
+.search-item .title { font-weight: 600; margin-bottom: 4px; }
+.search-item .snippet { font-size: 13px; color: var(--muted); }
+.search-item .score { font-size: 11px; color: var(--green); margin-top: 4px; }
+
+/* 图谱容器 */
+#graph-container {
+  flex: 1;
+  background: var(--bg);
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  position: relative;
+  min-height: 400px;
+}
+#graph-canvas { width: 100%; height: 100%; }
+
+/* 标签 */
+.tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  background: #f1f5f9;
+  color: var(--muted);
+  margin-right: 4px;
+}
+.tag.green { background: #dcfce7; color: #16a34a; }
+.tag.amber { background: #fef3c7; color: #d97706; }
+.tag.purple { background: #ede9fe; color: #7c3aed; }
+
+/* 网格布局 */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+/* 统计卡片 */
+.stat-card {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px;
+  text-align: center;
+}
+.stat-card .value { font-size: 28px; font-weight: 700; color: var(--blue); }
+.stat-card .label { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+/* Wiki 页面内容 */
+#page-content h1 { font-size: 22px; font-weight: 700; margin: 0 0 16px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+#page-content h2 { font-size: 18px; font-weight: 600; margin: 24px 0 12px; }
+#page-content h3 { font-size: 15px; font-weight: 600; margin: 20px 0 10px; }
+#page-content p { margin: 12px 0; line-height: 1.8; }
+#page-content ul, #page-content ol { padding-left: 22px; margin: 8px 0; }
+#page-content li { margin: 4px 0; line-height: 1.7; }
+#page-content pre { padding: 14px; border-radius: 6px; background: #f7f7f5; overflow-x: auto; font-size: 13px; line-height: 1.6; margin: 12px 0; }
+#page-content pre code { background: none; padding: 0; font-size: inherit; }
+#page-content code { padding: 2px 5px; border-radius: 3px; background: #f7f7f5; font-size: 13px; }
+#page-content a { color: var(--text); text-decoration: underline; }
+#page-content a.wikilink { font-weight: 500; }
+#page-content blockquote { margin: 12px 0; padding: 8px 14px; border-left: 3px solid var(--line); color: var(--muted); }
+#page-content strong { font-weight: 600; }
+#page-content table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13px; }
+#page-content th, #page-content td { padding: 8px 12px; border: 1px solid var(--line); text-align: left; }
+#page-content th { background: #f7f7f5; font-weight: 600; }
+#page-content hr { border: 0; border-top: 1px solid var(--line); margin: 20px 0; }
+
+/* 隐藏类 */
+.hidden { display: none !important; }
+
+/* 加载动画 */
+.loading {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--line);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* 工具栏 */
+.toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.toolbar .search-box {
+  flex: 1;
+  min-width: 200px;
+  max-width: 400px;
+}
+
+/* 分隔线 */
+.divider { height: 1px; background: var(--line); margin: 16px 0; }
+
+/* 提示 */
+.hint {
+  background: #fefce8;
+  border: 1px solid #fde68a;
+  border-radius: 6px;
+  padding: 12px;
+  font-size: 13px;
+  color: #92400e;
+  margin-bottom: 16px;
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- 侧边栏 -->
+  <div id="sidebar">
+    <div id="sidebar-header">
+      <a href="../index.html" style="font-size:13px;color:var(--muted);margin-right:6px">← 返回</a>
+      <span>📚</span> LLM Wiki
+    </div>
+    <div id="sidebar-nav">
+      <div class="nav-item active" data-view="scan" onclick="switchView('scan')">
+        <span class="icon">🔍</span> 项目扫描
+      </div>
+      <div class="nav-item" data-view="wiki" onclick="switchView('wiki')">
+        <span class="icon">📝</span> Wiki管理
+      </div>
+      <div class="nav-item" data-view="browse" onclick="switchView('browse')">
+        <span class="icon">📖</span> Wiki浏览
+      </div>
+      <div class="nav-item" data-view="graph" onclick="switchView('graph')">
+        <span class="icon">🕸️</span> 知识图谱
+      </div>
+      <div class="nav-item" data-view="search" onclick="switchView('search')">
+        <span class="icon">🔎</span> 智能检索
+      </div>
+      <div class="divider"></div>
+      <div class="nav-item" data-view="settings" onclick="switchView('settings')">
+        <span class="icon">⚙️</span> 设置
+      </div>
+    </div>
+  </div>
+
+  <!-- 主内容区 -->
+  <div id="main">
+    <div id="header">
+      <h1 id="page-title">项目扫描</h1>
+      <div id="header-actions"></div>
+    </div>
+    <div id="content">
+      <!-- 扫描视图 -->
+      <div id="view-scan" class="view">
+        <div class="card">
+          <div class="card-header">📁 选择项目目录</div>
+          <div class="grid-2">
+            <div>
+              <input type="text" id="scan-path" placeholder="输入项目路径，如 D:\project\my-project" value="D:\project">
+            </div>
+            <div>
+              <button class="btn primary" onclick="scanProjects()">
+                <span>🔍</span> 扫描项目
+              </button>
+              <button class="btn" onclick="selectFolder()">
+                <span>📂</span> 选择文件夹
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">📋 发现的项目 <span id="project-count"></span></div>
+          <div class="hint">点击选择要Wiki化的项目，可多选</div>
+          <div id="project-list" class="project-list">
+            <div style="color: var(--muted); text-align: center; padding: 40px;">
+              点击"扫描项目"开始扫描
+            </div>
+          </div>
+        </div>
+
+        <div id="selected-actions" class="card hidden">
+          <div class="card-header">⚡ 批量操作</div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn success" onclick="batchIngest()">
+              <span>📝</span> Wiki化选中项目
+            </button>
+            <button class="btn" onclick="clearSelection()">
+              <span>❌</span> 清除选择
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Wiki管理视图 -->
+      <div id="view-wiki" class="view hidden">
+        <div class="card">
+          <div class="card-header">📚 Wiki项目列表</div>
+          <div class="toolbar">
+            <button class="btn primary" onclick="loadExistingWiki()">
+              <span>📂</span> 加载已有Wiki
+            </button>
+            <button class="btn" onclick="loadWikiProjects()">
+              <span>🔄</span> 刷新
+            </button>
+          </div>
+          <div id="wiki-list" class="project-list">
+            <div style="color: var(--muted); text-align: center; padding: 40px;">
+              暂无Wiki项目，请先扫描并Wiki化项目
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 图谱视图 -->
+      <div id="view-graph" class="view hidden">
+        <div class="toolbar">
+          <select id="graph-project" onchange="loadGraph()">
+            <option value="">选择Wiki项目</option>
+          </select>
+          <button class="btn" onclick="buildGraph()">
+            <span>🔄</span> 重建图谱
+          </button>
+          <button class="btn" onclick="fitGraph()">
+            <span>📐</span> 适配视图
+          </button>
+        </div>
+        <div class="grid-2" style="height: calc(100vh - 200px);">
+          <div id="graph-container">
+            <div id="graph-canvas"></div>
+          </div>
+          <div class="card" style="overflow-y: auto;">
+            <div class="card-header">📊 图谱统计</div>
+            <div id="graph-stats" class="grid-3">
+              <div class="stat-card">
+                <div class="value" id="stat-nodes">0</div>
+                <div class="label">节点数</div>
+              </div>
+              <div class="stat-card">
+                <div class="value" id="stat-edges">0</div>
+                <div class="label">关系数</div>
+              </div>
+              <div class="stat-card">
+                <div class="value" id="stat-orphan">0</div>
+                <div class="label">孤立节点</div>
+              </div>
+            </div>
+            <div class="divider"></div>
+            <div class="card-header">🔍 节点搜索</div>
+            <input type="search" id="graph-search" placeholder="搜索节点..." oninput="searchNodes(this.value)">
+            <div id="node-detail" style="margin-top: 16px;">
+              <div style="color: var(--muted); text-align: center; padding: 20px;">
+                点击节点查看详情
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Wiki浏览视图 -->
+      <div id="view-browse" class="view hidden">
+        <div class="card">
+          <div class="card-header">📖 Wiki页面浏览</div>
+          <div class="grid-2">
+            <select id="browse-project" onchange="loadWikiPages()">
+              <option value="">选择Wiki项目</option>
+            </select>
+            <div style="display: flex; gap: 8px; justify-content: flex-end;">
+              <button class="btn" onclick="createNewPage()">
+                <span>➕</span> 新建页面
+              </button>
+              <button class="btn" onclick="refreshWikiPages()">
+                <span>🔄</span> 刷新
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 250px 1fr; gap: 16px; height: calc(100vh - 200px);">
+          <!-- 页面侧边栏 -->
+          <div class="card" style="padding: 12px; overflow-y: auto;">
+            <div style="font-size: 13px; color: var(--muted); margin-bottom: 12px;">📑 页面列表</div>
+            <div id="wiki-pages-list" style="font-size: 14px;">
+              <div style="color: var(--muted); text-align: center; padding: 20px;">
+                请先选择Wiki项目
+              </div>
+            </div>
+          </div>
+
+          <!-- 页面内容区 -->
+          <div class="card" style="display: flex; flex-direction: column;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+              <div id="current-page-title" style="font-size: 18px; font-weight: 600;">未选择页面</div>
+              <div id="page-actions" style="display: none;">
+                <button class="btn" onclick="editCurrentPage()">
+                  <span>✏️</span> 编辑
+                </button>
+                <button class="btn" onclick="deleteCurrentPage()" style="color: var(--red);">
+                  <span>🗑️</span> 删除
+                </button>
+              </div>
+            </div>
+            <div id="page-content" style="flex: 1; overflow-y: auto; line-height: 1.8; font-size: 14px;">
+              <div style="color: var(--muted); text-align: center; padding: 40px;">
+                选择左侧页面查看内容
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 页面编辑视图 -->
+      <div id="view-edit" class="view hidden">
+        <div class="card">
+          <div class="card-header">✏️ 页面编辑</div>
+          <div class="grid-2">
+            <input type="text" id="edit-page-title" placeholder="页面标题" style="font-weight: 600;">
+            <div style="display: flex; gap: 8px; justify-content: flex-end;">
+              <button class="btn primary" onclick="savePage()">
+                <span>💾</span> 保存
+              </button>
+              <button class="btn" onclick="cancelEdit()">
+                <span>✖️</span> 取消
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; height: calc(100vh - 200px);">
+          <!-- 编辑区 -->
+          <div class="card" style="display: flex; flex-direction: column;">
+            <div style="font-size: 13px; color: var(--muted); margin-bottom: 8px;">Markdown编辑</div>
+            <textarea id="edit-content" style="flex: 1; width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.6; resize: none;" oninput="updatePreview()"></textarea>
+          </div>
+
+          <!-- 预览区 -->
+          <div class="card" style="display: flex; flex-direction: column;">
+            <div style="font-size: 13px; color: var(--muted); margin-bottom: 8px;">实时预览</div>
+            <div id="edit-preview" style="flex: 1; overflow-y: auto; line-height: 1.8; font-size: 14px; padding: 12px; background: var(--bg); border-radius: 6px;"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div style="font-size: 13px; color: var(--muted); margin-bottom: 8px;">快速插入</div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="btn" onclick="insertMarkdown('heading')">H1标题</button>
+            <button class="btn" onclick="insertMarkdown('h2')">H2标题</button>
+            <button class="btn" onclick="insertMarkdown('bold')">**粗体**</button>
+            <button class="btn" onclick="insertMarkdown('italic')">*斜体*</button>
+            <button class="btn" onclick="insertMarkdown('code')">`代码`</button>
+            <button class="btn" onclick="insertMarkdown('link')">[链接]()</button>
+            <button class="btn" onclick="insertMarkdown('wikilink')">[[Wiki链接]]</button>
+            <button class="btn" onclick="insertMarkdown('list')">列表</button>
+            <button class="btn" onclick="insertMarkdown('codeblock')">代码块</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 智能检索与问答视图 -->
+      <div id="view-search" class="view hidden">
+        <div class="card">
+          <div class="card-header">🔎 智能检索与问答</div>
+          <div class="hint">
+            💡 输入关键词进行检索，或开启"AI问答"获得LLM生成的答案
+          </div>
+          <div style="margin-bottom: 16px;">
+            <textarea id="search-query" placeholder="输入搜索关键词或问题，如：Transformer和BERT有什么关系？" style="width: 100%; height: 60px; padding: 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); font-size: 14px; resize: vertical;" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();performSearch()}"></textarea>
+          </div>
+          <div class="grid-2" style="align-items: center;">
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <select id="search-project">
+                <option value="">所有项目</option>
+              </select>
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer;">
+                <input type="checkbox" id="enable-qa" onchange="toggleQAMode()">
+                <span>AI问答</span>
+              </label>
+            </div>
+            <div style="display: flex; gap: 8px; justify-content: flex-end;">
+              <select id="qa-model" style="display: none;">
+                <option value="deepseek-chat">DeepSeek</option>
+                <option value="qwen-plus">通义千问</option>
+              </select>
+              <button class="btn primary" onclick="performSearch()">
+                <span>🔍</span> <span id="search-btn-text">检索</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- AI回答区域 -->
+        <div id="qa-answer" class="card hidden">
+          <div class="card-header">🤖 AI回答</div>
+          <div id="qa-answer-content" style="line-height: 1.8; font-size: 14px;"></div>
+        </div>
+
+        <!-- 检索结果区域 -->
+        <div class="card">
+          <div class="card-header">📄 检索结果 <span id="result-count"></span></div>
+          <div id="results-container" class="search-results">
+            <div style="color: var(--muted); text-align: center; padding: 40px;">
+              输入关键词或问题开始检索
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 设置视图 -->
+      <div id="view-settings" class="view hidden">
+        <div class="card">
+          <div class="card-header">⚙️ LLM配置</div>
+          <div class="grid-2">
+            <div>
+              <label style="display: block; margin-bottom: 8px; font-size: 13px;">API端点</label>
+              <input type="text" id="llm-endpoint" placeholder="https://api.anthropic.com/v1/messages">
+            </div>
+            <div>
+              <label style="display: block; margin-bottom: 8px; font-size: 13px;">模型</label>
+              <select id="llm-model">
+                <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
+                <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+                <option value="gpt-4o">GPT-4o</option>
+                <option value="gpt-4-turbo">GPT-4 Turbo</option>
+              </select>
+            </div>
+          </div>
+          <div style="margin-top: 16px;">
+            <label style="display: block; margin-bottom: 8px; font-size: 13px;">API密钥</label>
+            <input type="password" id="llm-apikey" placeholder="sk-...">
+          </div>
+          <div class="hint" style="margin-top: 12px;">
+            💡 不配置API密钥时，将使用本地模式生成基础Wiki（功能有限）
+          </div>
+          <button class="btn primary" style="margin-top: 16px;" onclick="saveSettings()">
+            <span>💾</span> 保存设置
+          </button>
+        </div>
+
+        <div class="card">
+          <div class="card-header">📁 路径配置</div>
+          <div class="grid-2">
+            <div>
+              <label style="display: block; margin-bottom: 8px; font-size: 13px;">Wiki存储路径</label>
+              <input type="text" id="wiki-root" value="./wiki">
+            </div>
+            <div>
+              <label style="display: block; margin-bottom: 8px; font-size: 13px;">原始文件存储路径</label>
+              <input type="text" id="raw-root" value="./wiki-raw">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- vis.js for graph visualization -->
+<script src="vendor/vis-network.min.js"></script>
+
+<script>
+// 状态管理
+const state = {
+  currentView: 'scan',
+  projects: [],
+  selectedProjects: [],
+  wikiProjects: [],
+  graphData: null,
+  network: null,
+  settings: {
+    llmEndpoint: '',
+    llmApiKey: '',
+    llmModel: 'claude-sonnet-4-20250514',
+  }
+};
+
+// 初始化
+document.addEventListener('DOMContentLoaded', () => {
+  loadSettings();
+  loadWikiProjects();
+  applyHashView();
+});
+
+window.addEventListener('hashchange', applyHashView);
+
+function applyHashView() {
+  const view = (window.location.hash || '').replace('#', '');
+  const allowed = ['scan', 'wiki', 'browse', 'graph', 'search', 'settings'];
+  if (allowed.includes(view)) {
+    switchView(view);
+  }
+}
+
+// 视图切换
+function switchView(view) {
+  state.currentView = view;
+  if (['scan', 'wiki', 'browse', 'graph', 'search', 'settings'].includes(view) && window.location.hash !== '#' + view) {
+    history.replaceState(null, '', '#' + view);
+  }
+
+  // 更新导航
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.classList.toggle('active', item.dataset.view === view);
+  });
+
+  // 更新内容
+  document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
+  document.getElementById(`view-${view}`).classList.remove('hidden');
+
+  // 更新标题
+  const titles = {
+    scan: '项目扫描',
+    wiki: 'Wiki管理',
+    browse: 'Wiki浏览',
+    edit: '页面编辑',
+    graph: '知识图谱',
+    search: '智能检索',
+    settings: '设置'
+  };
+  document.getElementById('page-title').textContent = titles[view] || view;
+
+  // 视图特定初始化
+  if (view === 'graph') {
+    updateGraphProjectSelect();
+  } else if (view === 'search') {
+    updateSearchProjectSelect();
+  } else if (view === 'browse') {
+    updateBrowseProjectSelect();
+  }
+}
+
+// 扫描项目
+async function scanProjects() {
+  const path = document.getElementById('scan-path').value.trim();
+  if (!path) {
+    alert('请输入项目路径');
+    return;
+  }
+
+  const container = document.getElementById('project-list');
+  container.innerHTML = '<div style="text-align: center; padding: 40px;"><div class="loading"></div><br><br>正在扫描...</div>';
+
+  try {
+    const response = await fetch('/api/llm-wiki/scan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path })
+    });
+    const data = await response.json();
+
+    state.projects = data.projects || [];
+    renderProjects();
+  } catch (e) {
+    container.innerHTML = `<div style="color: var(--red); text-align: center; padding: 40px;">扫描失败: ${e.message}</div>`;
+  }
+}
+
+// 渲染项目列表
+function renderProjects() {
+  const container = document.getElementById('project-list');
+  document.getElementById('project-count').textContent = `(${state.projects.length})`;
+
+  if (state.projects.length === 0) {
+    container.innerHTML = '<div style="color: var(--muted); text-align: center; padding: 40px;">未发现项目</div>';
+    return;
+  }
+
+  container.innerHTML = state.projects.map((p, i) => `
+    <div class="project-item ${state.selectedProjects.includes(i) ? 'selected' : ''}" onclick="toggleProject(${i})">
+      <div class="name">${escapeHtml(p.name)}</div>
+      <div class="path">${escapeHtml(p.path)}</div>
+      <div class="stats">
+        <div class="stat"><span>📄</span> <span class="stat-value">${p.docCount || 0}</span> 文档</div>
+        <div class="stat"><span>💻</span> <span class="stat-value">${p.codeCount || 0}</span> 代码</div>
+        ${p.hasReadme ? '<div class="stat"><span class="tag green">README</span></div>' : ''}
+        ${p.hasClaudeMd ? '<div class="stat"><span class="tag purple">CLAUDE.md</span></div>' : ''}
+        ${p.hasWiki ? '<div class="stat"><span class="tag">已Wiki化</span></div>' : ''}
+      </div>
+    </div>
+  `).join('');
+
+  updateSelectedActions();
+}
+
+// 切换项目选择
+function toggleProject(index) {
+  const idx = state.selectedProjects.indexOf(index);
+  if (idx === -1) {
+    state.selectedProjects.push(index);
+  } else {
+    state.selectedProjects.splice(idx, 1);
+  }
+  renderProjects();
+}
+
+// 清除选择
+function clearSelection() {
+  state.selectedProjects = [];
+  renderProjects();
+}
+
+// 更新批量操作显示
+function updateSelectedActions() {
+  const actions = document.getElementById('selected-actions');
+  actions.classList.toggle('hidden', state.selectedProjects.length === 0);
+}
+
+// 批量Wiki化
+async function batchIngest() {
+  if (state.selectedProjects.length === 0) return;
+
+  const projects = state.selectedProjects.map(i => state.projects[i]);
+
+  if (!confirm(`确定要Wiki化 ${projects.length} 个项目吗？\n\n这可能需要一些时间。`)) return;
+
+  const container = document.getElementById('project-list');
+  container.innerHTML = '<div style="text-align: center; padding: 40px;"><div class="loading"></div><br><br>正在Wiki化...<br><small>请勿关闭页面</small></div>';
+
+  let processed = 0;
+  for (const project of projects) {
+    try {
+      await ingestProject(project);
+      processed++;
+      container.innerHTML = `<div style="text-align: center; padding: 40px;"><div class="loading"></div><br><br>正在Wiki化... (${processed}/${projects.length})<br><small>${escapeHtml(project.name)}</small></div>`;
+    } catch (e) {
+      console.error(`Wiki化失败: ${project.name}`, e);
+    }
+  }
+
+  container.innerHTML = `<div style="text-align: center; padding: 40px; color: var(--green);">✓ Wiki化完成！<br><br>成功: ${processed}/${projects.length}</div>`;
+
+  state.selectedProjects = [];
+  loadWikiProjects();
+}
+
+// Wiki化单个项目
+async function ingestProject(project) {
+  const response = await fetch('/api/llm-wiki/ingest', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      path: project.fullPath,
+      projectName: project.name
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error('Ingest failed');
+  }
+
+  return response.json();
+}
+
+// 加载已有Wiki目录
+async function loadExistingWiki() {
+  const path = prompt('请输入Wiki目录路径：', 'D:\\project\\vscode\\wiki');
+  if (!path) return;
+
+  const name = prompt('请输入项目名称：', path.split(/[\\/]/).pop() || 'wiki');
+  if (!name) return;
+
+  try {
+    const response = await fetch('/api/llm-wiki/load', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path, name })
+    });
+    const data = await response.json();
+
+    if (data.success) {
+      alert(`成功加载Wiki！\n\n页面数: ${data.pages}\n路径: ${data.path}`);
+      loadWikiProjects();
+    } else {
+      alert('加载失败: ' + (data.error || '未知错误'));
+    }
+  } catch (e) {
+    alert('加载失败: ' + e.message);
+  }
+}
+
+// 加载Wiki项目列表
+async function loadWikiProjects() {
+  try {
+    const response = await fetch('/api/llm-wiki/projects');
+    const data = await response.json();
+    state.wikiProjects = data.projects || [];
+    renderWikiList();
+  } catch (e) {
+    console.error('加载Wiki项目失败:', e);
+  }
+}
+
+// 渲染Wiki列表
+function renderWikiList() {
+  const container = document.getElementById('wiki-list');
+
+  if (state.wikiProjects.length === 0) {
+    container.innerHTML = '<div style="color: var(--muted); text-align: center; padding: 40px;">暂无Wiki项目</div>';
+    return;
+  }
+
+  container.innerHTML = state.wikiProjects.map(p => `
+    <div class="project-item">
+      <div class="name">${escapeHtml(p.name)}</div>
+      <div class="path">${escapeHtml(p.path)}</div>
+      <div class="stats">
+        <div class="stat"><span>📄</span> <span class="stat-value">${p.pages || 0}</span> 页面</div>
+        <div class="stat"><span>📅</span> <span class="stat-value">${p.updated || '-'}</span></div>
+      </div>
+      <div style="margin-top: 12px;">
+        <button class="btn" onclick="viewWiki('${escapeHtml(p.slug)}')">
+          <span>👁️</span> 查看
+        </button>
+        <button class="btn" onclick="deleteWiki('${escapeHtml(p.slug)}')" style="margin-left: 8px;">
+          <span>🗑️</span> 删除
+        </button>
+      </div>
+    </div>
+  `).join('');
+}
+
+// Wiki浏览相关
+let currentPage = null;
+let editMode = false;
+
+function updateBrowseProjectSelect() {
+  const select = document.getElementById('browse-project');
+  select.innerHTML = '<option value="">选择Wiki项目</option>' +
+    state.wikiProjects.map(p => `<option value="${p.slug}">${escapeHtml(p.name)}</option>`).join('');
+}
+
+async function loadWikiPages() {
+  const project = document.getElementById('browse-project').value;
+  if (!project) {
+    document.getElementById('wiki-pages-list').innerHTML = '<div style="color: var(--muted); text-align: center; padding: 20px;">请先选择Wiki项目</div>';
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/llm-wiki/pages?project=${encodeURIComponent(project)}`);
+    const data = await response.json();
+
+    if (data.success) {
+      renderWikiPagesList(data.pages);
+    } else {
+      document.getElementById('wiki-pages-list').innerHTML = `<div style="color: var(--red);">加载失败: ${data.error}</div>`;
+    }
+  } catch (e) {
+    document.getElementById('wiki-pages-list').innerHTML = `<div style="color: var(--red);">请求失败: ${e.message}</div>`;
+  }
+}
+
+function renderWikiPagesList(pages) {
+  const container = document.getElementById('wiki-pages-list');
+
+  if (!pages || pages.length === 0) {
+    container.innerHTML = '<div style="color: var(--muted); text-align: center; padding: 20px;">暂无页面</div>';
+    return;
+  }
+
+  // 按文件名排序
+  pages.sort((a, b) => a.name.localeCompare(b.name));
+
+  container.innerHTML = pages.map(p => `
+    <div class="page-item" onclick="loadPageContent('${escapeHtml(p.name)}')" style="padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-bottom: 4px; transition: background 0.15s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span>📄</span>
+        <span>${escapeHtml(p.name.replace('.md', ''))}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function loadPageContent(pageName) {
+  const project = document.getElementById('browse-project').value;
+  if (!project) return;
+
+  currentPage = { project, name: pageName };
+
+  try {
+    const response = await fetch(`/api/llm-wiki/page?project=${encodeURIComponent(project)}&page=${encodeURIComponent(pageName)}`);
+    const data = await response.json();
+
+    if (data.success) {
+      document.getElementById('current-page-title').textContent = pageName.replace('.md', '');
+      document.getElementById('page-content').innerHTML = renderMarkdown(data.content);
+      document.getElementById('page-content').dataset.original = data.content; // 保存原始内容
+      document.getElementById('page-actions').style.display = 'flex';
+      document.getElementById('page-actions').style.gap = '8px';
+    } else {
+      document.getElementById('page-content').innerHTML = `<div style="color: var(--red);">加载失败: ${data.error}</div>`;
+    }
+  } catch (e) {
+    document.getElementById('page-content').innerHTML = `<div style="color: var(--red);">请求失败: ${e.message}</div>`;
+  }
+}
+
+function renderMarkdown(content) {
+  if (!content) return '';
+
+  var html = content
+    .replace(/```(\w+)?\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+    .replace(/\[\[([^\]]+)\]\]/g, '<a href="#" onclick="loadPageContent(\'$1.md\')" class="wikilink">$1</a>')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+    .replace(/^- (.+)$/gm, '<li>$1</li>')
+    .replace(/(<li>.*<\/li>)/g, '<ul>$1</ul>')
+    .replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>')
+    .replace(/\n\n/g, '</p><p>')
+    .replace(/\n/g, '<br>');
+
+  return '<p>' + html + '</p>';
+}
+
+function refreshWikiPages() {
+  loadWikiPages();
+}
+
+function createNewPage() {
+  const project = document.getElementById('browse-project').value;
+  if (!project) {
+    alert('请先选择Wiki项目');
+    return;
+  }
+
+  currentPage = { project, name: null, isNew: true };
+  document.getElementById('edit-page-title').value = '';
+  document.getElementById('edit-content').value = '# 新页面\n\n开始编写内容...\n\n相关链接: [[其他页面]]';
+  updatePreview();
+  switchView('edit');
+}
+
+function editCurrentPage() {
+  if (!currentPage) return;
+
+  const project = currentPage.project;
+  const pageName = currentPage.name;
+
+  // 获取当前内容
+  const contentDiv = document.getElementById('page-content');
+  const originalContent = contentDiv.dataset.original || '';
+
+  document.getElementById('edit-page-title').value = pageName.replace('.md', '');
+  document.getElementById('edit-content').value = originalContent;
+  updatePreview();
+  switchView('edit');
+}
+
+async function deleteCurrentPage() {
+  if (!currentPage) return;
+
+  if (!confirm(`确定要删除页面 "${currentPage.name}" 吗？此操作不可撤销！`)) {
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/llm-wiki/page/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        project: currentPage.project,
+        page: currentPage.name
+      })
+    });
+    const data = await response.json();
+
+    if (data.success) {
+      alert('页面已删除');
+      currentPage = null;
+      document.getElementById('current-page-title').textContent = '未选择页面';
+      document.getElementById('page-content').innerHTML = '<div style="color: var(--muted); text-align: center; padding: 40px;">选择左侧页面查看内容</div>';
+      document.getElementById('page-actions').style.display = 'none';
+      loadWikiPages();
+    } else {
+      alert('删除失败: ' + data.error);
+    }
+  } catch (e) {
+    alert('请求失败: ' + e.message);
+  }
+}
+
+async function savePage() {
+  const project = currentPage?.project || document.getElementById('browse-project').value;
+  if (!project) {
+    alert('请先选择Wiki项目');
+    return;
+  }
+
+  const title = document.getElementById('edit-page-title').value.trim();
+  const content = document.getElementById('edit-content').value;
+
+  if (!title) {
+    alert('请输入页面标题');
+    return;
+  }
+
+  const pageName = title.endsWith('.md') ? title : title + '.md';
+
+  try {
+    const response = await fetch('/api/llm-wiki/page/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        project,
+        page: pageName,
+        content
+      })
+    });
+    const data = await response.json();
+
+    if (data.success) {
+      alert('页面已保存');
+      currentPage = { project, name: pageName };
+      switchView('browse');
+      loadWikiPages();
+      loadPageContent(pageName);
+    } else {
+      alert('保存失败: ' + data.error);
+    }
+  } catch (e) {
+    alert('请求失败: ' + e.message);
+  }
+}
+
+function cancelEdit() {
+  switchView('browse');
+}
+
+function updatePreview() {
+  const content = document.getElementById('edit-content').value;
+  document.getElementById('edit-preview').innerHTML = renderMarkdown(content);
+}
+
+function insertMarkdown(type) {
+  const textarea = document.getElementById('edit-content');
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const text = textarea.value;
+  const selected = text.substring(start, end);
+
+  let insert = '';
+  switch (type) {
+    case 'heading': insert = `# ${selected || '标题'}`; break;
+    case 'h2': insert = `## ${selected || '标题'}`; break;
+    case 'bold': insert = `**${selected || '粗体文本'}**`; break;
+    case 'italic': insert = `*${selected || '斜体文本'}*`; break;
+    case 'code': insert = `\`${selected || '代码'}\``; break;
+    case 'link': insert = `[${selected || '链接文本'}](url)`; break;
+    case 'wikilink': insert = `[[${selected || '页面名称'}]]`; break;
+    case 'list': insert = `- ${selected || '列表项'}`; break;
+    case 'codeblock': insert = `\`\`\`\n${selected || '代码块'}\n\`\`\``; break;
+  }
+
+  textarea.value = text.substring(0, start) + insert + text.substring(end);
+  textarea.focus();
+  textarea.selectionStart = start + insert.length;
+  textarea.selectionEnd = start + insert.length;
+  updatePreview();
+}
+
+// 图谱相关
+function updateGraphProjectSelect() {
+  const select = document.getElementById('graph-project');
+  select.innerHTML = '<option value="">选择Wiki项目</option>' +
+    state.wikiProjects.map(p => `<option value="${p.slug}">${escapeHtml(p.name)}</option>`).join('');
+}
+
+async function loadGraph() {
+  const slug = document.getElementById('graph-project').value;
+  if (!slug) return;
+
+  try {
+    const response = await fetch(`/api/llm-wiki/graph?project=${slug}`);
+    const data = await response.json();
+
+    state.graphData = data;
+    renderGraph(data);
+    updateGraphStats(data.stats);
+  } catch (e) {
+    console.error('加载图谱失败:', e);
+  }
+}
+
+async function buildGraph() {
+  const slug = document.getElementById('graph-project').value;
+  if (!slug) {
+    alert('请先选择项目');
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/llm-wiki/graph/build', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ project: slug })
+    });
+    const data = await response.json();
+
+    state.graphData = data;
+    renderGraph(data);
+    updateGraphStats(data.stats);
+  } catch (e) {
+    console.error('构建图谱失败:', e);
+  }
+}
+
+function renderGraph(data) {
+  if (!data || !data.nodes) return;
+
+  const container = document.getElementById('graph-canvas');
+  container.innerHTML = '';
+
+  const nodes = new vis.DataSet(data.nodes.map(n => ({
+    id: n.id,
+    label: n.title || n.id,
+    title: n.definition || '',
+    color: {
+      background: getNodeColor(n),
+      border: n.level <= 1 ? '#fff' : getNodeColor(n)
+    },
+    size: n.level <= 1 ? 20 : (n.level <= 2 ? 12 : 8),
+    font: { size: n.level <= 1 ? 14 : 10, color: '#e6edf3' }
+  })));
+
+  const edges = new vis.DataSet(data.edges.map(e => ({
+    from: e.source,
+    to: e.target,
+    color: { color: '#3a6090' }
+  })));
+
+  const options = {
+    physics: {
+      enabled: true,
+      solver: 'barnesHut',
+      barnesHut: {
+        gravitationalConstant: -3000,
+        springLength: 100
+      }
+    },
+    nodes: { shape: 'dot' },
+    edges: { smooth: { type: 'continuous' } }
+  };
+
+  state.network = new vis.Network(container, { nodes, edges }, options);
+
+  state.network.on('selectNode', params => {
+    if (params.nodes.length === 1) {
+      showNodeDetail(params.nodes[0]);
+    }
+  });
+}
+
+function getNodeColor(node) {
+  const colors = {
+    '概念': '#58a6ff',
+    '代码': '#3fb950',
+    '文档': '#d29922',
+    '配置': '#a371f7'
+  };
+  return colors[node.type] || '#768390';
+}
+
+function updateGraphStats(stats) {
+  if (!stats) return;
+  document.getElementById('stat-nodes').textContent = stats.totalNodes || 0;
+  document.getElementById('stat-edges').textContent = stats.totalEdges || 0;
+  document.getElementById('stat-orphan').textContent = stats.orphanNodes || 0;
+}
+
+function fitGraph() {
+  if (state.network) {
+    state.network.fit();
+  }
+}
+
+function searchNodes(query) {
+  if (!state.network || !state.graphData) return;
+
+  if (!query.trim()) {
+    state.network.unselectAll();
+    return;
+  }
+
+  const lower = query.toLowerCase();
+  const matches = state.graphData.nodes
+    .filter(n => (n.title || '').toLowerCase().includes(lower))
+    .map(n => n.id);
+
+  if (matches.length > 0) {
+    state.network.selectNodes(matches.slice(0, 20));
+    if (matches.length === 1) {
+      state.network.focus(matches[0], { scale: 1.5 });
+    }
+  }
+}
+
+function showNodeDetail(nodeId) {
+  const node = state.graphData?.nodes?.find(n => n.id === nodeId);
+  if (!node) return;
+
+  const container = document.getElementById('node-detail');
+  container.innerHTML = `
+    <div class="node-title" style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">${escapeHtml(node.title || node.id)}</div>
+    <span class="tag">${escapeHtml(node.type || '节点')}</span>
+    ${node.tags?.length ? node.tags.map(t => `<span class="tag green">${escapeHtml(t)}</span>`).join('') : ''}
+    ${node.definition ? `<div style="margin-top: 12px; font-size: 13px; line-height: 1.6;">${escapeHtml(node.definition)}</div>` : ''}
+    <div style="margin-top: 12px; font-size: 11px; color: var(--muted);">
+      层级: ${node.level || 0} · 出入度: ${node.inDegree || 0}/${node.outDegree || 0}
+    </div>
+  `;
+}
+
+// 检索相关
+function updateSearchProjectSelect() {
+  const select = document.getElementById('search-project');
+  select.innerHTML = '<option value="">所有项目</option>' +
+    state.wikiProjects.map(p => `<option value="${p.slug}">${escapeHtml(p.name)}</option>`).join('');
+}
+
+async function performSearch() {
+  const query = document.getElementById('search-query').value.trim();
+  const project = document.getElementById('search-project').value;
+  const enableQA = document.getElementById('enable-qa').checked;
+  const model = document.getElementById('qa-model').value;
+
+  if (!query) {
+    alert('请输入搜索关键词或问题');
+    return;
+  }
+
+  const container = document.getElementById('results-container');
+  container.innerHTML = '<div style="text-align: center; padding: 40px;"><div class="loading"></div></div>';
+
+  // 如果开启AI问答
+  if (enableQA) {
+    const answerContainer = document.getElementById('qa-answer');
+    const answerContent = document.getElementById('qa-answer-content');
+
+    answerContainer.classList.remove('hidden');
+    answerContent.innerHTML = '<div class="loading"></div> 正在检索并生成答案...';
+
+    try {
+      const response = await fetch('/api/llm-wiki/qa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: query, project, model, topK: 5 })
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        answerContent.innerHTML = formatAnswer(data.answer);
+        renderSearchResults(data.sources || []);
+      } else {
+        answerContent.innerHTML = `<span style="color: var(--red);">回答失败: ${data.error || '未知错误'}</span>`;
+        container.innerHTML = '<div style="color: var(--muted); text-align: center; padding: 40px;">检索失败</div>';
+      }
+    } catch (e) {
+      answerContent.innerHTML = `<span style="color: var(--red);">请求失败: ${e.message}</span>`;
+      container.innerHTML = `<div style="color: var(--red); text-align: center; padding: 40px;">请求失败: ${e.message}</div>`;
+    }
+    return;
+  }
+
+  // 普通检索模式
+  document.getElementById('qa-answer').classList.add('hidden');
+
+  try {
+    const response = await fetch('/api/llm-wiki/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, project, topK: 20 })
+    });
+    const data = await response.json();
+
+    renderSearchResults(data.results || []);
+  } catch (e) {
+    container.innerHTML = `<div style="color: var(--red); text-align: center; padding: 40px;">搜索失败: ${e.message}</div>`;
+  }
+}
+
+function toggleQAMode() {
+  const enableQA = document.getElementById('enable-qa').checked;
+  const modelSelect = document.getElementById('qa-model');
+  const btnText = document.getElementById('search-btn-text');
+
+  modelSelect.style.display = enableQA ? 'block' : 'none';
+  btnText.textContent = enableQA ? '问答' : '检索';
+}
+
+function renderSearchResults(results) {
+  const container = document.getElementById('results-container');
+  document.getElementById('result-count').textContent = `(${results.length})`;
+
+  if (results.length === 0) {
+    container.innerHTML = '<div style="color: var(--muted); text-align: center; padding: 40px;">未找到相关结果</div>';
+    return;
+  }
+
+  container.innerHTML = results.map(r => `
+    <div class="search-item" onclick="openWikiPage('${escapeHtml(r.id)}')">
+      <div class="title">${escapeHtml(r.title)}</div>
+      <div class="snippet">${escapeHtml(r.snippet)}</div>
+      <div class="score">相关度: ${(r.score * 100).toFixed(1)}%</div>
+    </div>
+  `).join('');
+}
+
+function formatAnswer(text) {
+  if (!text) return '';
+  // 简单的Markdown格式化
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/`(.+?)`/g, '<code style="background: var(--bg); padding: 2px 6px; border-radius: 4px;">$1</code>')
+    .replace(/\n/g, '<br>');
+}
+
+// 设置相关
+function loadSettings() {
+  try {
+    const saved = localStorage.getItem('llm-wiki-settings');
+    if (saved) {
+      state.settings = JSON.parse(saved);
+      document.getElementById('llm-endpoint').value = state.settings.llmEndpoint || '';
+      document.getElementById('llm-apikey').value = state.settings.llmApiKey || '';
+      document.getElementById('llm-model').value = state.settings.llmModel || 'claude-sonnet-4-20250514';
+    }
+  } catch (e) {}
+}
+
+function saveSettings() {
+  state.settings = {
+    llmEndpoint: document.getElementById('llm-endpoint').value,
+    llmApiKey: document.getElementById('llm-apikey').value,
+    llmModel: document.getElementById('llm-model').value
+  };
+
+  localStorage.setItem('llm-wiki-settings', JSON.stringify(state.settings));
+  alert('设置已保存');
+}
+
+// 工具函数
+function escapeHtml(text) {
+  if (!text) return '';
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function selectFolder() {
+  // 在浏览器中无法直接选择文件夹，提示用户手动输入
+  alert('请手动输入项目路径，或使用扫描功能自动发现项目');
+}
+</script>
+</body>
+</html>

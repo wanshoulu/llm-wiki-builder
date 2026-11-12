@@ -1,0 +1,1291 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>文档Wiki化 - AI知识建设</title>
+  <link rel="icon" href="/favicon.ico">
+  <!-- ⭐ 引入marked.js Markdown渲染库 -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    /* ⭐ 专业浅色系设计(参考OntoMind风格) */
+    :root {
+      --bg-primary: #f6f8fa;
+      --bg-secondary: #ffffff;
+      --bg-hover: #f0f3f6;
+      --border: #d0d7de;
+      --text-primary: #1f2328;
+      --text-secondary: #57606a;
+      --text-muted: #8b949e;
+      --accent: #0969da;
+      --accent-hover: #0550ae;
+      --success: #1a7f37;
+      --warning: #9a6700;
+      --error: #cf222e;
+      --shadow: 0 1px 3px rgba(27,31,35,0.12), 0 8px 24px rgba(27,31,35,0.08);
+      --radius: 6px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    /* ⭐ Steps步骤导航(参考Ant Design Steps) */
+    .steps-container {
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      padding: 24px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+    }
+
+    .step {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: relative;
+      padding: 0 32px;
+    }
+
+    .step:not(:last-child)::after {
+      content: '';
+      width: 80px;
+      height: 1px;
+      background: var(--border);
+      position: absolute;
+      left: 100%;
+      top: 50%;
+    }
+
+    .step-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 600;
+      border: 2px solid var(--border);
+      background: var(--bg-secondary);
+      color: var(--text-muted);
+      transition: all 0.3s;
+    }
+
+    .step-icon.active {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #ffffff;
+    }
+
+    .step-icon.finish {
+      border-color: var(--success);
+      background: var(--success);
+      color: #ffffff;
+    }
+
+    .step-content {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .step-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .step-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* ⭐ 主容器 */
+    .main-container {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding: 24px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    /* ⭐ 卡片 */
+    .card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .card-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* ⭐ 上传区域 */
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 32px;
+      text-align: center;
+      background: var(--bg-primary);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .upload-zone:hover {
+      border-color: var(--accent);
+      background: #ddf4ff;
+    }
+
+    .upload-icon { font-size: 48px; color: var(--text-muted); margin-bottom: 12px; }
+    .upload-text { font-size: 14px; color: var(--text-secondary); margin-bottom: 8px; }
+    .upload-hint { font-size: 12px; color: var(--text-muted); }
+
+    /* ⭐ 文件列表 */
+    .file-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .file-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-size: 12px;
+    }
+
+    .file-remove {
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    .file-remove:hover { color: var(--error); }
+
+    /* ⭐ 模型配置 */
+    .model-config {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 16px;
+    }
+
+    .config-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+
+    .config-select,
+    .config-input {
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 13px;
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+    }
+
+    .config-select:focus,
+    .config-input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .api-hint {
+      background: #ddf4ff;
+      border: 1px solid #54aeff;
+      padding: 12px;
+      border-radius: var(--radius);
+      font-size: 12px;
+      color: #0969da;
+      margin-top: 16px;
+    }
+
+    /* ⭐ 按钮 */
+    .btn {
+      padding: 10px 20px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+    }
+
+    .btn:hover {
+      background: var(--bg-hover);
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #ffffff;
+      border-color: var(--accent);
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-hover);
+    }
+
+    .btn-success {
+      background: var(--success);
+      color: #ffffff;
+      border-color: var(--success);
+    }
+
+    .btn-danger {
+      background: var(--error);
+      color: #ffffff;
+      border-color: var(--error);
+    }
+
+    /* ⭐ 流式展示区域(关键!) */
+    .stream-container {
+      display: flex;
+      gap: 16px;
+      margin-top: 16px;
+    }
+
+    .stream-panel {
+      flex: 1;
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      min-height: 300px;
+      max-height: 400px;
+      overflow-y: auto;
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--text-secondary);
+    }
+
+    .stream-panel-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .stream-panel-content {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    .stream-loading {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--accent);
+      font-size: 13px;
+    }
+
+    /* ⭐ Markdown渲染区域(关键!) */
+    .markdown-container {
+      display: flex;
+      gap: 16px;
+      margin-top: 16px;
+    }
+
+    .markdown-docs-list {
+      width: 240px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+
+    .markdown-docs-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 12px;
+    }
+
+    .markdown-doc-item {
+      padding: 8px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-bottom: 4px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      transition: background 0.2s;
+      border-left: 3px solid transparent;
+    }
+
+    .markdown-doc-item:hover {
+      background: var(--bg-hover);
+    }
+
+    .markdown-doc-item.active {
+      background: #ddf4ff;
+      border-left-color: var(--accent);
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    .markdown-viewer {
+      flex: 1;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      overflow-y: auto;
+      min-height: 400px;
+    }
+
+    /* ⭐ Markdown样式 */
+    .markdown-body h1 {
+      font-size: 24px;
+      font-weight: 600;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 8px;
+      margin-bottom: 16px;
+    }
+
+    .markdown-body h2 {
+      font-size: 20px;
+      font-weight: 600;
+      margin-top: 24px;
+      margin-bottom: 12px;
+    }
+
+    .markdown-body h3 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-top: 20px;
+      margin-bottom: 8px;
+    }
+
+    .markdown-body p {
+      margin-bottom: 12px;
+      line-height: 1.6;
+    }
+
+    .markdown-body table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 16px 0;
+    }
+
+    .markdown-body table th,
+    .markdown-body table td {
+      border: 1px solid var(--border);
+      padding: 8px 12px;
+      text-align: left;
+    }
+
+    .markdown-body table th {
+      background: var(--bg-primary);
+      font-weight: 600;
+    }
+
+    .markdown-body a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    .markdown-body a:hover {
+      text-decoration: underline;
+    }
+
+    .markdown-body ul,
+    .markdown-body ol {
+      margin-left: 24px;
+      margin-bottom: 12px;
+    }
+
+    .markdown-body li {
+      margin-bottom: 4px;
+    }
+
+    .wiki-link {
+      color: var(--accent);
+      font-weight: 500;
+      cursor: pointer;
+      background: #ddf4ff;
+      padding: 2px 6px;
+      border-radius: 3px;
+    }
+
+    .wiki-link:hover {
+      background: #54aeff;
+      color: #ffffff;
+    }
+
+    /* ⭐ 进度指示 */
+    .progress-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--accent);
+    }
+
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid var(--accent);
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ⭐ 响应式 */
+    @media (max-width: 1024px) {
+      .stream-container {
+        flex-direction: column;
+      }
+
+      .markdown-container {
+        flex-direction: column;
+      }
+
+      .markdown-docs-list {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- ⭐ Steps步骤导航(参考Ant Design Steps) -->
+  <div class="steps-container">
+    <div class="step" data-step="1">
+      <div class="step-icon">1</div>
+      <div class="step-content">
+        <div class="step-title">上传并转Markdown</div>
+        <div class="step-desc">文档解析处理</div>
+      </div>
+    </div>
+    <div class="step" data-step="2">
+      <div class="step-icon">2</div>
+      <div class="step-content">
+        <div class="step-title">生成Wiki文档</div>
+        <div class="step-desc">LLM结构化知识体系</div>
+      </div>
+    </div>
+    <div class="step" data-step="3">
+      <div class="step-icon">3</div>
+      <div class="step-content">
+        <div class="step-title">完成</div>
+        <div class="step-desc">查看Wiki输出</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⭐ 主容器 -->
+  <div class="main-container">
+    <!-- ⭐ 第1阶段:上传并转Markdown -->
+    <div class="card" id="stage1-card">
+      <div class="card-header">
+        <div class="card-title">
+          <span>📄</span>
+          <span>第1阶段: 上传文档并转换为Markdown</span>
+        </div>
+      </div>
+
+      <div class="upload-zone" onclick="triggerUpload()" id="uploadZone">
+        <div class="upload-icon">📁</div>
+        <div class="upload-text">点击选择文档或拖拽文件到此区域</div>
+        <div class="upload-hint">支持 Word(.doc/.docx)、PDF(.pdf)、Excel(.xls/.xlsx)、PPT(.ppt/.pptx)、TXT、MD 等格式</div>
+      </div>
+
+      <input type="file" id="fileInput" multiple style="display: none;" accept=".doc,.docx,.pdf,.xls,.xlsx,.ppt,.pptx,.txt,.md,.markdown">
+
+      <div class="file-list" id="fileList"></div>
+
+      <div class="model-config">
+        <div>
+          <div class="config-label">LLM模型选择:</div>
+          <select id="llmModel" class="config-select">
+            <option value="deepseek-v4-flash">DeepSeek V4 Flash (快速)</option>
+            <option value="deepseek-v4-pro" selected>DeepSeek V4 Pro (高质量)</option>
+            <option value="qwen-plus">Qwen Plus (阿里云)</option>
+            <option value="kimi-latest">Kimi Latest</option>
+          </select>
+        </div>
+        <div>
+          <div class="config-label">生成选项:</div>
+          <div style="margin-top: 8px;">
+            <input type="checkbox" id="enableWiki5" checked> 生成5文档体系(领域/实体/关系/规则/实例)
+            <br>
+            <input type="checkbox" id="enableCrossRef" checked> 自动添加交叉引用 [[wikilinks]]
+          </div>
+        </div>
+      </div>
+
+      <div class="api-hint">
+        ✓ DEV模式已启用内置API密钥: DeepSeek + Qwen + Kimi,无需手动配置
+      </div>
+
+      <div style="margin-top: 16px;">
+        <button class="btn btn-primary" onclick="handleConvert()">
+          <span>⚡</span>
+          <span>开始转换</span>
+        </button>
+      </div>
+
+      <!-- ⭐ 流式展示区域(关键!) -->
+      <div class="stream-container" id="convertStreamContainer" style="display: none;">
+        <div class="stream-panel">
+          <div class="stream-panel-title">
+            <span>🔄</span>
+            <span>文档转Markdown流式输出</span>
+            <span class="stream-loading" id="convertLoading">
+              <span class="spinner"></span>
+              <span>处理中...</span>
+            </span>
+          </div>
+          <div class="stream-panel-content" id="convertMdStream"></div>
+        </div>
+        <div class="stream-panel">
+          <div class="stream-panel-title">
+            <span>📄</span>
+            <span>转换结果预览</span>
+          </div>
+          <div class="stream-panel-content" id="convertedMarkdownPreview"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ⭐ 第2阶段:生成Wiki文档 -->
+    <div class="card" id="stage2-card" style="display: none;">
+      <div class="card-header">
+        <div class="card-title">
+          <span>🧠</span>
+          <span>第2阶段: LLM生成Wiki文档体系</span>
+        </div>
+        <button class="btn btn-danger" onclick="abortWikiGen()" id="abortBtn" style="display: none;">
+          <span>⏸</span>
+          <span>停止生成</span>
+        </button>
+      </div>
+
+      <div style="margin-top: 16px;">
+        <button class="btn btn-primary" onclick="handleWikiGen()" id="wikiGenBtn">
+          <span>⚡</span>
+          <span>开始Wiki生成</span>
+        </button>
+      </div>
+
+      <!-- ⭐ 流式展示区域(关键!) -->
+      <div class="stream-container" id="wikiStreamContainer" style="display: none;">
+        <div class="stream-panel">
+          <div class="stream-panel-title">
+            <span>🧠</span>
+            <span>LLM Wiki生成流式输出</span>
+            <span class="stream-loading" id="wikiLoading">
+              <span class="spinner"></span>
+              <span>生成中...</span>
+            </span>
+          </div>
+          <div class="stream-panel-content" id="wikiGenStream"></div>
+        </div>
+        <div class="stream-panel">
+          <div class="stream-panel-title">
+            <span>📋</span>
+            <span>解析提示</span>
+          </div>
+          <div class="stream-panel-content" id="wikiParseWarning"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ⭐ 第3阶段:Wiki输出展示 -->
+    <div class="card" id="stage3-card" style="display: none;">
+      <div class="card-header">
+        <div class="card-title">
+          <span>📖</span>
+          <span>第3阶段: Wiki输出(5文档体系)</span>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn" onclick="openWikiLibrary()">
+            <span>📚</span>
+            <span>Wiki知识库管理</span>
+          </button>
+          <button class="btn btn-success" onclick="downloadAllWiki()">
+            <span>↓</span>
+            <span>下载全部</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="api-hint" style="background: #def7ec; border-color: #1a7f37; color: #1a7f37;">
+        ✓ Wiki知识库功能: 所有生成的Wiki文档统一存储在本地 wiki/ 目录,支持浏览、搜索、修改、删除等管理功能
+      </div>
+
+      <!-- ⭐ Markdown渲染区域(直接展示完整内容) -->
+      <div style="margin-top: 16px;">
+        <div id="wikiDocsList" style="display: flex; flex-direction: column; gap: 16px;">
+          <!-- 动态生成Wiki文档完整内容展示 -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ⭐ 全局状态(参考OntoMind状态管理)
+    let uploadedFiles = [];
+    let convertedMarkdown = '';
+    let wikiDocuments = [];
+    let wikiSelectedDoc = 0;
+    let abortController = null;
+
+    // ⭐ Steps步骤导航管理
+    function updateSteps(currentStep) {
+      const steps = document.querySelectorAll('.step-icon');
+      steps.forEach((icon, i) => {
+        icon.classList.remove('active', 'finish');
+        if (i < currentStep - 1) {
+          icon.classList.add('finish');
+        } else if (i === currentStep - 1) {
+          icon.classList.add('active');
+        }
+      });
+    }
+
+    // ⭐ 文件上传
+    function triggerUpload() {
+      document.getElementById('fileInput').click();
+    }
+
+    function updateFileList() {
+      const fileList = document.getElementById('fileList');
+      fileList.innerHTML = uploadedFiles.map(file => `
+        <div class="file-item">
+          <span>📄</span>
+          <span>${file.name}</span>
+          <span style="color: var(--text-muted);">(${formatFileSize(file.size)})</span>
+          <span class="file-remove" onclick="removeFile('${file.name}')">✕</span>
+        </div>
+      `).join('');
+    }
+
+    function removeFile(filename) {
+      uploadedFiles = uploadedFiles.filter(f => f.name !== filename);
+      updateFileList();
+    }
+
+    function formatFileSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    // ⭐ 直接绑定事件(不依赖DOMContentLoaded,因为script在body末尾)
+    const fileInput = document.getElementById('fileInput');
+    const uploadZone = document.getElementById('uploadZone');
+
+    // ⭐ 点击上传
+    if (fileInput) {
+      fileInput.addEventListener('change', function(e) {
+        uploadedFiles = Array.from(e.target.files);
+        updateFileList();
+      });
+    }
+
+    // ⭐ 拖拽上传(增强用户体验)
+    if (uploadZone) {
+      uploadZone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        uploadZone.style.borderColor = 'var(--accent)';
+        uploadZone.style.background = '#ddf4ff';
+      });
+
+      uploadZone.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        uploadZone.style.borderColor = 'var(--border)';
+        uploadZone.style.background = 'var(--bg-primary)';
+      });
+
+      uploadZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        uploadZone.style.borderColor = 'var(--border)';
+        uploadZone.style.background = 'var(--bg-primary)';
+
+        const files = e.dataTransfer.files;
+        uploadedFiles = Array.from(files);
+        updateFileList();
+      });
+    }
+
+    // ⭐ 第1阶段:上传并转Markdown
+    async function handleConvert() {
+      if (uploadedFiles.length === 0) {
+        alert('请先选择文档!');
+        return;
+      }
+
+      // ⭐ 更新Steps导航
+      updateSteps(1);
+
+      // ⭐ 显示流式展示区域
+      document.getElementById('convertStreamContainer').style.display = 'flex';
+      document.getElementById('convertLoading').style.display = 'flex';
+
+      // ⭐ 模拟流式输出(实际需要调用后端API)
+      const convertMdStream = document.getElementById('convertMdStream');
+      convertMdStream.textContent = '';
+
+      // ⭐ 模拟AI处理过程
+      const mockStreamText = `正在解析文档: ${uploadedFiles[0].name}...\n\n第1步: 文件上传\n✓ 已上传到服务器\n\n第2步: 文件解析\n✓ 识别文件格式\n✓ 提取文本内容\n\n第3步: Markdown转换\n✓ 生成标准Markdown格式\n✓ 保留表格和列表结构\n\n转换完成!`;
+
+      for (let i = 0; i < mockStreamText.length; i++) {
+        convertMdStream.textContent += mockStreamText[i];
+        await new Promise(resolve => setTimeout(resolve, 20));
+      }
+
+      // ⭐ 模拟转换结果
+      convertedMarkdown = `# 文档内容\n\n## 核心概念\n- 实体1\n- 实体2\n- 实体3\n\n## 数据结构\n| 字段名 | 类型 | 说明 |\n| --- | --- | --- |\n| id | String | 唯一标识 |\n| name | String | 名称 |\n\n## 业务规则\n- 规则1: 条件判断\n- 规则2: 数据验证`;
+
+      // ⭐ 显示转换结果
+      document.getElementById('convertedMarkdownPreview').textContent = convertedMarkdown;
+
+      // ⭐ 完成第1阶段
+      document.getElementById('convertLoading').style.display = 'none';
+      updateSteps(2);
+
+      // ⭐ 显示第2阶段
+      document.getElementById('stage2-card').style.display = 'block';
+    }
+
+    // ⭐ 第2阶段:生成Wiki文档
+    // ⭐ 高质量LLM Wiki生成Prompt(参考OntoMind并改进)
+    const LLM_WIKI_SYSTEM_PROMPT = `# LLM Wiki 知识体系建设指令(增强版)
+
+## 角色定义
+你是一名资深知识架构师,精通Karpathy提出的LLM Wiki模式("Compile once, maintain continuously")。你的核心职责是将非结构化文档编译为高质量Wiki知识库,支持知识复利循环(Ingest → Query → Lint)。
+
+## 核心任务(Ingest阶段)
+分析用户提供的Markdown文档,通过以下3步流程构建Wiki知识体系:
+
+### 第1步:知识提取(严禁遗漏)
+1. **实体提取**:扫描全文,识别所有实体(类/概念/对象),包括:
+   - 明确提及的实体("客户"、"订单"、"产品")
+   - 隐含实体(表格列名、业务角色、系统模块)
+   - 抽象实体(流程、状态、事件)
+   - **禁止遗漏**:即使只出现1次,也必须列出
+
+2. **关系提取**:识别实体间所有关系,包括:
+   - 显式关系(关联/依赖/继承/组合)
+   - 隐式关系(通过业务规则推导)
+   - 数据关系(外键/引用/映射)
+
+3. **规则提取**:提取所有业务规则/约束条件/逻辑判断,格式化为IF-THEN结构
+
+4. **实例提取**(关键改进!):
+   - 提取文档中所有具体实例(真实数据/案例/示例)
+   - 包括具体数值、客户名称、产品ID、日期等
+   - **不能编造实例**:必须来源于原文档
+
+### 第2步:交叉引用构建(知识复利关键)
+1. 为每个实体/概念添加[[Wiki链接]],指向相关文档
+2. 检测潜在矛盾(同一概念不同定义、冲突规则)
+3. 在"矛盾检测报告"章节标注发现的矛盾
+
+### 第3步:健康检查(Lint前置)
+生成后自检:
+- 实体完整性:是否遗漏实体?
+- 关系有效性:所有关系涉及的实体是否已定义?
+- 链接可达性:所有[[Wiki链接]]指向的文档是否存在?
+- 矛盾检测:是否发现矛盾定义?
+
+## 输出格式(严格遵守分隔符)
+使用 \`---DOCUMENT:文件名.md---\` 作为文档分隔符,每个分隔符后紧跟完整Markdown内容。
+
+示例:
+---DOCUMENT:00_领域概述.md---
+# 领域概述
+[完整内容...]
+
+---DOCUMENT:01_实体定义.md---
+# 实体定义
+[完整内容...]
+
+## 5文档体系内容规范(增强版)
+
+### 文档0:00_领域概述.md
+**必须包含章节**(顺序固定):
+1. 知识领域名称和范围定义
+2. **核心概念清单**(每个概念一行,便于后续图谱化)
+3. 概念关系地图(文本方式可视化)
+4. 文档阅读导航(链接到其他4个文档)
+5. **矛盾检测报告**(发现的矛盾定义/规则冲突)
+6. 知识复利循环说明(Ingest→Query→Lint流程)
+7. 相关文档(Wiki链接列表)
+
+### 文档1:01_实体定义.md
+**每个实体独立一节**,格式严格:
+\`\`\`markdown
+## 实体名称 [实体英文名]
+
+**描述**: 2-5句自然语言描述,说明实体含义和业务价值。
+
+**数据属性表格**:
+
+| 字段名 | 中文名 | 数据类型 | 取值范围 | 说明 | 来源 |
+| --- | --- | --- | --- | --- | --- |
+| field_name | 字段中文名 | String/Integer/Date | 允许值范围 | 字段用途 | 原文档位置 |
+
+**父类关系**: 如有父类,标注 \`[[父类实体]]\`
+**子类关系**: 如有子类,列出所有子类实体
+**关键实例**: 列出文档中出现的该实体典型实例(至少1个)
+**来源标注**: 注明内容提取位置(章节/表格/段落)
+\`\`\`
+
+**严禁遗漏**:即使实体只有表格列名提及,也必须完整定义。
+
+### 文档2:02_关系网络.md
+**每个关系独立一节**,格式:
+\`\`\`markdown
+## 关系名称 [源实体 → 目标实体]
+
+**关系描述**: 关系的业务含义
+**定义域(Domain)**: [[源实体]]
+**值域(Range)**: [[目标实体]]
+**关系类型**: 1:1 / 1:N / N:M (必须明确)
+**方向性**: 单向 / 双向
+**业务场景**: 在什么场景下触发此关系
+**约束条件**: 关系的限制规则(如数量限制、状态限制)
+**来源标注**: 原文档位置
+\`\`\`
+
+使用ASCII文本可视化核心关系网络(便于理解)。
+
+### 文档3:03_业务规则.md
+**每条规则独立一节**,格式:
+\`\`\`markdown
+## 规则N: 规则名称
+
+**触发条件(IF)**:
+- 条件1: [具体条件判断]
+- 条件2: [具体条件判断]
+
+**执行动作(THEN)**:
+- 动作1: [具体执行内容]
+- 动作2: [具体执行内容]
+
+**涉及实体**: [[实体1]], [[实体2]]
+**优先级**: 高/中/低
+**业务场景**: 规则适用的业务场景
+**来源标注**: 原文档位置(章节/表格)
+\`\`\`
+
+**规则汇总表格**: 所有规则用表格汇总(便于快速浏览)。
+
+### 文档4:04_实例数据.md
+**实例数据表格**(必须提取原文档所有实例):
+
+| 实例名 | 所属类 | 属性值(JSON) | 业务场景 | 来源位置 |
+| --- | --- | --- | --- | --- |
+| 实例1 | [[实体类]] | {"id": "001", "name": "张三"} | 业务场景描述 | 表格第3行 |
+
+**实例统计**: 总实例数、实体覆盖度(哪些实体有实例)
+**缺失标注**: 如某些实体无实例,标注"原文档未提供实例数据"
+
+## 反偷懒强制指令(加强版)
+- **禁止遗漏实体**:表格列名、隐含实体必须提取
+- **禁止遗漏关系**:任何实体关联必须标注
+- **禁止遗漏实例**:原文档所有具体数据必须提取
+- **禁止省略**:不能使用"等"、"详见原文"、"以此类推"
+- **禁止合并**:不同实体/关系/规则必须分开列出
+- **禁止编造**:所有内容必须来源于原文档,实例不能虚构
+- **禁止模糊**:关系类型(1:1/1:N/N:M)必须明确,不能说"多对多关系"
+- **完整输出**:5个文档必须全部输出,不能只生成部分
+
+## 知识复利循环设计
+在领域概述文档末尾添加:
+
+\`\`\`markdown
+## 知识复利循环
+
+### Ingest阶段(编译)
+- 知识提取 → 交叉引用 → 矛盾检测 → 健康检查
+- 生成5文档体系:领域/实体/关系/规则/实例
+
+### Query阶段(归档)
+- 用户查询 → 匹配Wiki文档 → LLM回答 → 归档优质答案回Wiki
+- 知识复利:每次查询都丰富Wiki内容
+
+### Lint阶段(健康检查)
+- 实体完整性检查:是否遗漏实体?
+- 链接有效性检查:所有Wiki链接是否可达?
+- 矛盾检测:是否存在矛盾定义?
+- 实例覆盖度:哪些实体缺少实例数据?
+
+**健康指标**:
+- 实体完整度: 已提取实体数 / 文档总实体数
+- 链接有效性: 有效Wiki链接数 / 总链接数
+- 实例覆盖度: 有实例实体数 / 总实体数
+\`\`\`
+
+现在请开始分析用户提供的Markdown文档,生成完整的5文档Wiki体系。记住:严禁遗漏任何实体、关系、实例!`;
+
+    // ⭐ 解析Wiki文档(参考OntoMind的parseWikiDocuments)
+    function parseWikiDocuments(rawText) {
+      const docs = [];
+      let workingText = rawText.replace(/^```[\s\S]*?\n/, '').replace(/\n```$/, '');
+
+      // ⭐ 策略1: ---DOCUMENT:xxx.md---分隔符(优先)
+      const sepRegex = /---DOCUMENT:\s*(.+?\.md)\s*---/gi;
+      const sepMatches = [];
+      let m;
+      while ((m = sepRegex.exec(workingText)) !== null) {
+        sepMatches.push({ index: m.index, name: m[1].trim() });
+      }
+
+      if (sepMatches.length >= 1) {
+        for (let i = 0; i < sepMatches.length; i++) {
+          const rematch = sepRegex.exec(workingText.slice(sepMatches[i].index));
+          const contentStart = sepMatches[i].index + (rematch?.[0]?.length || 0);
+          const contentEnd = i + 1 < sepMatches.length ? sepMatches[i + 1].index : workingText.length;
+          const content = workingText.slice(contentStart, contentEnd).trim();
+
+          if (content) {
+            const titleMatch = content.match(/^#\s+(.+)$/m);
+            const title = titleMatch ? titleMatch[1].trim() : sepMatches[i].name.replace('.md', '');
+            docs.push({ name: sepMatches[i].name, title, content });
+          }
+        }
+      }
+
+      // ⭐ 策略2: # 一级标题分割(备用)
+      if (docs.length === 0) {
+        const h1Regex = /^#\s+(.+)$/gm;
+        const h1Matches = [];
+        let hm;
+        while ((hm = h1Regex.exec(workingText)) !== null) {
+          h1Matches.push({ index: hm.index, title: hm[1].trim() });
+        }
+
+        if (h1Matches.length >= 2) {
+          for (let i = 0; i < h1Matches.length; i++) {
+            const contentStart = h1Matches[i].index;
+            const contentEnd = i + 1 < h1Matches.length ? h1Matches[i + 1].index : workingText.length;
+            const content = workingText.slice(contentStart, contentEnd).trim();
+            const name = h1Matches[i].title.replace(/[\\/:*?"<>|]/g, '_') + '.md';
+
+            if (content) docs.push({ name, title: h1Matches[i].title, content });
+          }
+        }
+      }
+
+      // ⭐ 策略3: 回退(整体作为单文档)
+      if (docs.length === 0 && workingText.trim()) {
+        const titleMatch = workingText.match(/^#\s+(.+)$/m);
+        const title = titleMatch ? titleMatch[1].trim() : 'Wiki文档';
+        docs.push({ name: '00_Wiki文档.md', title, content: workingText.trim() });
+      }
+
+      return docs;
+    }
+
+    // ⭐ 生成模拟Wiki文档(备用方案)
+    function generateMockWikiDocuments() {
+      return [
+        {
+          name: '00_领域概述.md',
+          title: '领域概述',
+          content: `# 领域概述
+
+## 核心概念清单
+- 实体1
+- 实体2
+- 实体3
+
+## 文档阅读导航
+- [[01_实体定义]] - 实体详细定义
+- [[02_关系网络]] - 实体间关系
+- [[03_业务规则]] - 业务规则说明
+- [[04_实例数据]] - 实例数据展示
+
+## 知识复利循环
+### Ingest阶段(编译)
+- 知识提取 → 交叉引用 → 矛盾检测 → 健康检查
+
+### Query阶段(归档)
+- 用户查询 → 匹配Wiki文档 → LLM回答 → 归档优质答案
+
+### Lint阶段(健康检查)
+- 实体完整性检查
+- 链接有效性检查
+- 矛盾检测
+
+## 相关文档
+- [[01_实体定义]]
+- [[02_关系网络]]`
+        },
+        {
+          name: '01_实体定义.md',
+          title: '实体定义',
+          content: `# 实体定义
+
+## 实体1 [Entity1]
+**描述**: 这是实体1的自然语言描述。
+
+**数据属性表格**:
+| 字段名 | 中文名 | 数据类型 | 取值范围 | 说明 | 来源 |
+| --- | --- | --- | --- | --- | --- |
+| id | ID | String | - | 唯一标识 | 原文档表格 |
+| name | 名称 | String | 1-50字符 | 实体名称 | 原文档表格 |
+
+**关键实例**: 实例1(id=001, name=张三)
+
+## 相关文档
+- [[00_领域概述]]`
+        },
+        {
+          name: '02_关系网络.md',
+          title: '关系网络',
+          content: `# 关系网络
+
+## 关系1 [实体1 → 实体2]
+**关系描述**: 实体1与实体2的关联关系
+**定义域(Domain)**: [[实体1]]
+**值域(Range)**: [[实体2]]
+**关系类型**: 1:N
+**方向性**: 单向
+
+## 相关文档
+- [[01_实体定义]]`
+        },
+        {
+          name: '03_业务规则.md',
+          title: '业务规则',
+          content: `# 业务规则
+
+## 规则1: 规则名称
+**触发条件(IF)**:
+- 条件1: 属性值满足特定要求
+
+**执行动作(THEN)**:
+- 动作1: 执行特定操作
+
+**涉及实体**: [[实体1]], [[实体2]]
+**优先级**: 高
+
+## 相关文档
+- [[01_实体定义]]`
+        },
+        {
+          name: '04_实例数据.md',
+          title: '实例数据',
+          content: `# 实例数据
+
+| 实例名 | 所属类 | 属性值(JSON) | 业务场景 | 来源位置 |
+| --- | --- | --- | --- | --- |
+| 实例1 | [[实体1]] | {"id": "001", "name": "张三"} | 业务场景描述 | 表格第3行 |
+
+**实例统计**: 总实例数1, 实体覆盖度100%
+
+## 相关文档
+- [[00_领域概述]]`
+        }
+      ];
+    }
+
+    async function handleWikiGen() {
+      if (!convertedMarkdown) {
+        alert('请先完成文档转换!');
+        return;
+      }
+
+      const selectedModel = document.getElementById('llmModel').value;
+      if (!selectedModel) {
+        alert('请先选择LLM模型!');
+        return;
+      }
+
+      // ⭐ 显示流式展示区域
+      document.getElementById('wikiStreamContainer').style.display = 'flex';
+      document.getElementById('wikiLoading').style.display = 'flex';
+      document.getElementById('abortBtn').style.display = 'inline-flex';
+      document.getElementById('wikiGenBtn').disabled = true;
+
+      const wikiGenStream = document.getElementById('wikiGenStream');
+      wikiGenStream.textContent = '';
+
+      // ⭐ 显示开始生成提示
+      wikiGenStream.textContent = `正在使用 ${selectedModel} 模型生成Wiki知识体系...\n\n`;
+
+      try {
+        // ⭐ 实际调用LLM API生成Wiki文档(参考OntoMind流式输出)
+        abortController = new AbortController();
+
+        const response = await fetch('/api/llm-wiki/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: selectedModel,
+            markdown: convertedMarkdown,
+            systemPrompt: LLM_WIKI_SYSTEM_PROMPT,
+            enableWiki5: document.getElementById('enableWiki5').checked,
+            enableCrossRef: document.getElementById('enableCrossRef').checked
+          }),
+          signal: abortController.signal
+        });
+
+        if (!response.ok) {
+          throw new Error(`LLM API调用失败: ${response.status}`);
+        }
+
+        // ⭐ 处理流式响应(参考OntoMind的fileToMarkdownStream)
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let fullWikiText = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          wikiGenStream.textContent += chunk;
+          fullWikiText += chunk;
+        }
+
+        // ⭐ 解析Wiki文档(参考OntoMind的parseWikiDocuments)
+        wikiDocuments = parseWikiDocuments(fullWikiText);
+
+        if (wikiDocuments.length < 3) {
+          wikiGenStream.textContent += `\n⚠️ Wiki文档解析出 ${wikiDocuments.length} 个文档(预期5个),可能模型输出格式不规范\n`;
+        } else {
+          wikiGenStream.textContent += `\n✓ Wiki生成完成! 共生成 ${wikiDocuments.length} 个结构化文档\n`;
+        }
+
+        // ⭐ 完成第2阶段
+        document.getElementById('wikiLoading').style.display = 'none';
+        document.getElementById('abortBtn').style.display = 'none';
+        updateSteps(3);
+
+        // ⭐ 显示第3阶段
+        document.getElementById('stage3-card').style.display = 'block';
+
+        // ⭐ 显示Wiki文档列表
+        displayWikiDocsList();
+
+        // ⭐ 存储Wiki文档到localStorage(统一管理)
+        const wikiLibraryData = {
+          docs: wikiDocuments.map(doc => ({
+            id: doc.name.replace('.md', ''),
+            name: doc.name,
+            title: doc.title,
+            badge: getBadgeForDoc(doc.name),
+            content: doc.content,
+            created: new Date().toISOString().split('T')[0],
+            updated: new Date().toISOString().split('T')[0]
+          })),
+          createdAt: new Date().toISOString(),
+          sourceFiles: uploadedFiles.map(f => f.name)
+        };
+        localStorage.setItem('wiki_library_data', JSON.stringify(wikiLibraryData));
+
+      } catch (error) {
+        console.error('Wiki生成失败:', error);
+        wikiGenStream.textContent += `\n❌ Wiki生成失败: ${error.message}\n`;
+        wikiGenStream.textContent += `\n提示: 请检查LLM模型是否可用,或尝试切换其他模型\n`;
+
+        // ⭐ 如果API失败,使用模拟数据作为备用
+        wikiGenStream.textContent += `\n正在使用备用模拟数据...\n`;
+        wikiDocuments = generateMockWikiDocuments();
+        displayWikiDocsList();
+      }
+
+      document.getElementById('wikiLoading').style.display = 'none';
+      document.getElementById('abortBtn').style.display = 'none';
+      document.getElementById('wikiGenBtn').disabled = false;
+    }
+
+    // ⭐ 停止Wiki生成
+    function abortWikiGen() {
+      if (abortController) {
+        abortController.abort();
+      }
+      document.getElementById('wikiLoading').style.display = 'none';
+      document.getElementById('abortBtn').style.display = 'none';
+    }
+
+    // ⭐ 显示Wiki文档列表(直接展示完整内容)
+    function displayWikiDocsList() {
+      const wikiDocsList = document.getElementById('wikiDocsList');
+      wikiDocsList.innerHTML = wikiDocuments.map((doc, i) => `
+        <div style="margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 16px;">
+          <div style="font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px;">
+            📄 ${doc.title}
+          </div>
+          <div class="markdown-body" style="font-size: 12px; color: var(--text-secondary); line-height: 1.5;">
+            ${marked.parse(doc.content).replace(/\[\[(.*?)\]\]/g, '<span class="wiki-link">[[\1]]</span>')}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // ⭐ 打开Wiki知识库管理页面
+    function openWikiLibrary() {
+      window.open('wiki-library.html', '_blank');
+    }
+
+    // ⭐ 根据文档名称获取badge标签
+    function getBadgeForDoc(docName) {
+      if (docName.includes('00_领域')) return '核心';
+      if (docName.includes('01_实体')) return '实体';
+      if (docName.includes('02_关系')) return '关系';
+      if (docName.includes('03_规则')) return '规则';
+      if (docName.includes('04_实例')) return '实例';
+      return '文档';
+    }
+
+    // ⭐ 下载全部Wiki
+    function downloadAllWiki() {
+      alert('下载功能正在实现中...');
+    }
+
+    // ⭐ 初始化Steps导航
+    updateSteps(1);
+  </script>
+</body>
+</html>

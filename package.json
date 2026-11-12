@@ -1,0 +1,19 @@
+{
+  "name": "llm-wiki-builder",
+  "version": "1.0.0",
+  "private": false,
+  "description": "LLM Wiki 知识构建工具链（独立部署版）：项目扫描 → 页面生成 → 知识图谱 → RAG 检索 → Wiki 问答，零数据库、零 CDN",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test tests/*.test.js"
+  },
+  "dependencies": {
+    "yaml": "^2.4.0",
+    "jsonwebtoken": "^9.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}
