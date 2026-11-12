@@ -45,7 +45,7 @@ git clone https://github.com/wanshoulu/llm-wiki-builder.git
 cd llm-wiki-builder && npm install && npm start
 ```
 
-打开 <http://127.0.0.1:3014/> —— 根路径 302 到 `/tools/llm-wiki.html`（LLM Wiki 工作台）。改端口 `PORT=4014 npm start`；配密钥 `cp .env.example .env` 填 `DEEPSEEK_KEY` 等（**不配也能跑**：浏览、页面管理、关键词检索、图谱可视化全离线可用，生成/问答/RAG 需要 LLM）。
+打开 <http://127.0.0.1:3014/> —— 根路径 302 到 `/tools/llm-wiki-light.html`（LLM Wiki 工作台，浅色设计）。改端口 `PORT=4014 npm start`；配密钥 `cp .env.example .env` 填 `DEEPSEEK_KEY` 等（**不配也能跑**：浏览、页面管理、关键词检索、图谱可视化全离线可用，生成/问答/RAG 需要 LLM）。
 
 跑起来后验证：
 
@@ -65,7 +65,8 @@ curl -X POST http://127.0.0.1:3014/api/knowledge/search -H 'Content-Type: applic
 
 | 页面 | 路径 | 作用 |
 |------|------|------|
-| **LLM Wiki 工作台（主入口）** | `/tools/llm-wiki.html` | 项目扫描 → Wiki 管理 → 浏览 → 知识图谱 → 智能检索，五合一 |
+| **LLM Wiki 工作台（主入口）** | `/tools/llm-wiki-light.html` | 项目扫描 → Wiki 管理 → 浏览 → 知识图谱 → 智能检索，五合一（浅色设计，与知识建设工作台同一体系） |
+| LLM Wiki 工作台（深色版） | `/tools/llm-wiki.html` | 同功能的深色皮肤版 |
 | **知识问答（Agent 应用）** | `/tools/knowledge-qa.html` | wiki 图谱问答 + GraphRAG 检索 + Agent 对话（Agent 通道需 `KNOWLEDGE_QA_AGENT_URL` 指向 Python 服务，未配置时该通道明确降级） |
 | **公文审核（Agent 应用）** | `/tools/doc-review-agent.html` | 上传 Word/PDF → 规则 + LLM 双通道审核 → 批注定位与回写（公文规范知识库 `doc-rules` 驱动：文种格式/标点/禁用词/引文核查） |
 | 知识库管理 | `/tools/wiki-library.html` | 库/页面 CRUD、RAG 索引构建、分块预览、图谱问答 |
