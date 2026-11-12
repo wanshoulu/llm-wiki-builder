@@ -114,7 +114,7 @@ const server = http.createServer((req, res) => {
 
   // 根路径落到 llm-wiki 工作台
   if (p === '/' || p === '/index.html') {
-    res.writeHead(302, { Location: '/tools/llm-wiki-light.html' });
+    res.writeHead(302, { Location: '/tools/knowledge-studio.html' });
     return res.end();
   }
   if (p === '/favicon.ico') {
@@ -158,7 +158,7 @@ const server = http.createServer((req, res) => {
   return sendJson(res, 404, {
     ok: false,
     error: 'NOT_FOUND',
-    hint: '入口 /tools/llm-wiki-light.html；API 前缀 /api/knowledge/*、/api/llm-wiki/*（兼容别名）、/api/wiki-graph/*、/api/knowledge-builder/wiki/*',
+    hint: '入口 /tools/knowledge-studio.html；API 前缀 /api/knowledge/*、/api/llm-wiki/*（兼容别名）、/api/wiki-graph/*、/api/knowledge-builder/wiki/*',
   });
 });
 
@@ -167,7 +167,7 @@ server.requestTimeout = 30 * 60 * 1000;
 server.headersTimeout = 65 * 1000;
 
 server.listen(PORT, HOST, () => {
-  console.log(`[llm-wiki-builder] http://${HOST}:${PORT}  →  /tools/llm-wiki-light.html`);
+  console.log(`[llm-wiki-builder] http://${HOST}:${PORT}  →  /tools/knowledge-studio.html`);
   console.log(`[llm-wiki-builder] wiki 根目录            →  ${process.env.WIKI_ROOT || path.join(ROOT, 'wiki')}`);
   console.log(`[llm-wiki-builder] SKIP_AUTH=${process.env.SKIP_AUTH}`);
 });

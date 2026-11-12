@@ -7,9 +7,9 @@
  */
 (function () {
   'use strict';
-  var HOME = (typeof window.GB_HOME === 'string' && window.GB_HOME) || '/tools/llm-wiki-light.html';
+  var HOME = (typeof window.GB_HOME === 'string' && window.GB_HOME) || '/tools/knowledge-studio.html';
   var APPS = [
-    { href: '/tools/llm-wiki-light.html', label: 'Wiki 工作台' },
+    { href: '/tools/knowledge-studio.html', label: '知识建设工作台' },
     { href: '/tools/knowledge-qa.html', label: '知识问答' },
     { href: '/tools/doc-review-agent.html', label: '公文审核' },
   ];
