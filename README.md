@@ -75,6 +75,14 @@ curl -X POST http://127.0.0.1:3014/api/knowledge/search -H 'Content-Type: applic
 
 > 知识问答与公文审核是 AI Harbor「基础工具 · AI 知识」区的两个 Agent 应用，与本仓库的知识链路同源（都消费 wiki 库与图谱），一并继承为 LLM Wiki 应用层；页面顶栏（appbar）在三者间互链。
 
+<p align="center">
+<img src="docs/images/knowledge-qa-app.png" alt="知识问答应用：wiki 图谱问答 + GraphRAG 检索" width="760">
+</p>
+
+<p align="center">
+<img src="docs/images/doc-review-agent.png" alt="公文审核应用：规则 + LLM 双通道审核与批注回写" width="760">
+</p>
+
 ## API 概览（完整契约见端点源码注释）
 
 | 前缀 | 组 | 说明 |
