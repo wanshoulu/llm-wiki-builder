@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>知识问答 — AI Harbor</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://unpkg.com/@antv/g6@5/dist/g6.min.js"></script>
+<link rel="stylesheet" href="/tools/vendor/phosphor/knowledge-builder-icons.css">
+<style>
+:root {
+  --bg: #fff; --bg2: #fafafa; --bg3: #f0f2f5; --border: #e8e8e8;
+  --text: rgba(0,0,0,.88); --text2: rgba(0,0,0,.45); --accent: #1677ff; --green: #0f766e;
+  --orange: #a96813; --red: #c13b32; --purple: #722ed1;
+  --accent-soft: #e6f4ff; --accent-hover: #0958d9; --accent-ring: rgba(22,119,255,.12);
+  --radius: 8px; --radius-sm: 6px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif; background: #f0f2f5; color: var(--text); height: calc(100vh - 44px); overflow: hidden; }
+
+/* ── Layout ── */
+.app { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.topbar { height: 48px; background: #fff; border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 20px; gap: 12px; flex-shrink: 0; z-index: 10; }
+.topbar .logo { font-size: 16px; font-weight: 600; color: var(--accent); }
+.topbar .sep { flex: 1; }
+.topbar .top-item { font-size: 12px; color: var(--text2); display: flex; align-items: center; gap: 4px; }
+.topbar input { font-size: 11px; padding: 3px 8px; border: 1px solid var(--border); border-radius: 4px; width: 160px; font-family: monospace; }
+.topbar .badge { padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; }
+.badge-ok { background: #e7f6f2; color: var(--green); border: 1px solid #9fd9ce; }
+
+.main { display: flex; flex: 1; overflow: hidden; }
+
+/* ── Sidebar ── */
+.sidebar { width: 260px; background: #fff; border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0; transition: width 0.2s; }
+.sidebar.collapsed { width: 0; overflow: hidden; border: none; }
+.sidebar-section { padding: 16px; border-bottom: 1px solid var(--border); }
+.sidebar-section h4 { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+.sidebar-section label { font-size: 12px; color: var(--text2); display: block; margin: 4px 0; }
+
+select, .sidebar input[type="text"] { width: 100%; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 12px; background: #fff; color: var(--text); }
+select:focus, input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-ring); }
+
+.mode-radio { display: flex; gap: 0; background: var(--bg3); border-radius: 6px; padding: 2px; }
+.mode-radio label { flex: 1; text-align: center; padding: 5px 0; font-size: 11px; border-radius: 4px; cursor: pointer; color: var(--text2); transition: all 0.15s; margin: 0 !important; }
+.mode-radio label.active { background: #fff; color: var(--accent); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
+.mode-radio input { display: none; }
+
+.slider-row { display: flex; align-items: center; gap: 6px; margin: 4px 0; }
+.slider-row label { font-size: 10px; color: var(--text2); min-width: 55px; margin: 0 !important; }
+.slider-row input[type="range"] { flex: 1; height: 4px; }
+.slider-row .val { font-size: 10px; color: var(--accent); min-width: 36px; text-align: right; }
+.opt-row { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text2); cursor: pointer; }
+.opt-row input[type="checkbox"] { width: auto; }
+
+/* ── Chat area ── */
+.chat-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--bg3); }
+.chat-messages { flex: 1; overflow-y: auto; padding: 24px 32px; }
+.chat-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--text2); }
+.chat-empty .icon { font-size: 48px; margin-bottom: 16px; opacity: 0.3; }
+.chat-empty h2 { font-size: 20px; color: var(--text); margin-bottom: 8px; }
+.chat-empty p { font-size: 13px; max-width: 400px; text-align: center; }
+
+.msg-row { display: flex; gap: 12px; margin-bottom: 24px; animation: fadeIn 0.2s; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.msg-row.user { justify-content: flex-end; }
+.msg-avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+.msg-row.user .msg-avatar { background: var(--accent); color: #fff; order: 2; }
+.msg-row.assistant .msg-avatar { background: var(--bg3); color: var(--purple); }
+
+.msg-bubble { max-width: 75%; padding: 12px 18px; border-radius: 12px; font-size: 14px; line-height: 1.65; }
+.msg-row.user .msg-bubble { background: var(--accent); color: #fff; border-bottom-right-radius: 4px; }
+.msg-row.assistant .msg-bubble { background: #fff; border: 1px solid var(--border); border-bottom-left-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+.msg-bubble h1,.msg-bubble h2,.msg-bubble h3 { margin: 8px 0 4px; font-size: 15px; }
+.msg-bubble p { margin-bottom: 6px; }
+.msg-bubble code { background: rgba(0,0,0,0.06); padding: 2px 5px; border-radius: 3px; font-size: 12px; }
+.msg-bubble pre { background: var(--bg3); border-radius: 6px; padding: 10px; overflow-x: auto; font-size: 12px; margin: 8px 0; }
+.msg-bubble blockquote { border-left: 3px solid var(--accent); padding-left: 10px; color: var(--text2); margin: 6px 0; }
+.msg-bubble ol, .msg-bubble ul { margin-left: 18px; }
+
+.msg-sources { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+.msg-src-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; background: var(--bg3); border-radius: 12px; font-size: 11px; cursor: pointer; transition: all 0.15s; border: 1px solid transparent; }
+.msg-src-chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.msg-src-chip .idx { background: var(--accent); color: #fff; width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; }
+
+.msg-meta { font-size: 10px; color: var(--text2); margin-top: 4px; display: flex; gap: 10px; }
+.msg-meta .tag { padding: 0 6px; border-radius: 3px; font-size: 10px; }
+.tag-model { background: var(--accent-soft); color: var(--accent); }
+.tag-budget { background: #e7f6f2; color: var(--green); }
+.tag-graph { background: #fef5e7; color: var(--orange); }
+.tag-error { background: #fdf0ef; color: var(--red); }
+
+/* ── Source popup ── */
+.src-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 100; align-items: center; justify-content: center; }
+.src-overlay.show { display: flex; }
+.src-modal { background: #fff; border-radius: 12px; width: 700px; max-width: 90vw; max-height: 80vh; display: flex; flex-direction: column; box-shadow: 0 8px 40px rgba(0,0,0,0.12); }
+.src-modal-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.src-modal-header h3 { font-size: 15px; }
+.src-modal-close { cursor: pointer; font-size: 18px; color: var(--text2); border: none; background: none; padding: 4px 8px; }
+.src-modal-body { padding: 20px; overflow-y: auto; flex: 1; font-size: 13px; line-height: 1.7; }
+.src-modal-body h1 { font-size: 18px; margin-bottom: 12px; }
+
+/* ── Context panel (right) ── */
+.ctx-panel { width: 340px; background: #fff; border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0; transition: width 0.2s; }
+.ctx-panel.collapsed { width: 0; overflow: hidden; border: none; }
+.ctx-panel-header { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; font-size: 13px; font-weight: 600; position: sticky; top: 0; background: #fff; z-index: 1; }
+.ctx-panel-header button { background: none; border: none; cursor: pointer; color: var(--text2); font-size: 16px; }
+.ctx-panel-body { flex: 1; overflow-y: auto; padding: 12px; }
+
+.ctx-source-item { padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 8px; cursor: pointer; transition: all 0.15s; font-size: 12px; }
+.ctx-source-item:hover { border-color: var(--accent); background: #fafcff; }
+.ctx-source-item .src-title { font-weight: 600; margin-bottom: 4px; }
+.ctx-source-item .src-snippet { color: var(--text2); font-size: 11px; line-height: 1.5; }
+.ctx-source-item .src-expand { display: none; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); font-size: 12px; line-height: 1.6; max-height: 200px; overflow-y: auto; }
+.ctx-source-item.expanded .src-expand { display: block; }
+
+#graphMount { width: 100%; height: 300px; background: #fafafa; border-radius: 6px; border: 1px solid var(--border); margin-bottom: 8px; }
+.node-detail { padding: 10px 12px; background: var(--bg2); border-radius: 6px; border: 1px solid var(--border); font-size: 12px; line-height: 1.5; display: none; }
+.node-detail.show { display: block; }
+.node-detail .nd-label { font-weight: 600; color: var(--accent); margin-bottom: 4px; }
+
+/* ── Input area ── */
+.chat-input-area { padding: 16px 32px 20px; background: var(--bg3); flex-shrink: 0; }
+.chat-input-wrap { max-width: 800px; margin: 0 auto; background: #fff; border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); display: flex; align-items: flex-end; gap: 8px; padding: 10px 14px; transition: border-color 0.15s; }
+.chat-input-wrap:focus-within { border-color: var(--accent); box-shadow: 0 2px 12px var(--accent-ring); }
+.chat-input-wrap textarea { flex: 1; border: none; outline: none; resize: none; font-size: 14px; line-height: 1.5; max-height: 120px; padding: 4px 0; background: transparent; font-family: inherit; }
+.chat-input-wrap button { width: 36px; height: 36px; border-radius: 50%; border: none; background: var(--accent); color: #fff; cursor: pointer; font-size: 16px; flex-shrink: 0; transition: all 0.15s; display: flex; align-items: center; justify-content: center; }
+.chat-input-wrap button:hover { background: var(--accent-hover); }
+.chat-input-wrap button:disabled { background: #d9d9d9; cursor: not-allowed; }
+.chat-input-info { max-width: 800px; margin: 6px auto 0; font-size: 10px; color: var(--text2); display: flex; gap: 12px; }
+
+/* ── Toggle buttons ── */
+.toggle-sidebar, .toggle-ctx { position: absolute; top: 56px; z-index: 5; width: 24px; height: 24px; border-radius: 50%; background: #fff; border: 1px solid var(--border); cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 4px rgba(0,0,0,0.08); color: var(--text2); }
+.toggle-sidebar { left: 248px; }
+.toggle-ctx { right: 328px; }
+.sidebar.collapsed ~ .chat-area .toggle-sidebar { left: 8px; }
+.ctx-panel.collapsed ~ .toggle-ctx { right: 8px; }
+
+/* ── Loading indicator ── */
+.typing-dots { display: inline-flex; gap: 4px; padding: 8px 0; }
+.typing-dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--text2); animation: bounce 1.4s infinite ease-in-out both; }
+.typing-dots span:nth-child(1) { animation-delay: -0.32s; }
+.typing-dots span:nth-child(2) { animation-delay: -0.16s; }
+@keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+
+@media (max-width: 900px) {
+  .sidebar { width: 0; overflow: hidden; }
+  .ctx-panel { width: 0; overflow: hidden; }
+  .chat-messages { padding: 16px; }
+  .chat-input-area { padding: 12px 16px 16px; }
+  .msg-bubble { max-width: 90%; }
+}
+.hidden { display: none !important; }
+
+/* ── Phase icons ── */
+@keyframes qa-spin { to { transform: rotate(360deg); } }
+.phase-icon-spin { display: inline-block; animation: qa-spin 1.2s linear infinite; }
+.sidebar-section h4 i.ph, .topbar i.ph, .ctx-panel-header i.ph { vertical-align: middle; }
+.mode-radio label i.ph { font-size: 13px; vertical-align: middle; margin-right: 2px; }
+</style>
+</head>
+<body>
+<div id="gb-appbar"></div><script src="/tools/appbar.js"></script>
+
+
+<div class="app">
+  <!-- ═══ Top Bar ═══ -->
+  <div class="topbar">
+    <span class="logo"><i class="ph ph-books" style="font-size:18px"></i> 知识问答</span>
+    <span style="font-size:11px;color:var(--text2)">Wiki · Graph · Fusion</span>
+    <span class="sep"></span>
+    <span class="top-item"><i class="ph ph-key" style="font-size:12px"></i> <input type="text" id="apiToken" placeholder="API Token（可选）" onchange="checkToken()"></span>
+    <span id="tokenStatus"></span>
+    <span class="sep" style="flex:0;width:12px"></span>
+    <button onclick="toggleSidebar()" style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--text2);padding:4px 8px;display:flex;align-items:center" title="设置"><i class="ph ph-gear-six"></i></button>
+  </div>
+
+  <div class="main">
+    <!-- ═══ Left Sidebar: Settings ═══ -->
+    <div class="sidebar" id="sidebar">
+      <div class="sidebar-section">
+        <h4><i class="ph ph-folders"></i> 知识源</h4>
+        <div class="mode-radio" id="modeRadio">
+          <label class="active"><input type="radio" name="mode" value="wiki" checked onchange="switchMode('wiki')"><i class="ph ph-book-open"></i> Wiki</label>
+          <label><input type="radio" name="mode" value="graph" onchange="switchMode('graph')"><i class="ph ph-graph"></i> 图谱</label>
+          <label><input type="radio" name="mode" value="fusion" onchange="switchMode('fusion')"><i class="ph ph-shuffle"></i> 融合</label>
+        </div>
+      </div>
+
+      <div class="sidebar-section" id="wikiCfg">
+        <h4><i class="ph ph-book-open"></i> Wiki 项目</h4>
+        <select id="qaProject"><option value="">所有项目</option></select>
+      </div>
+
+      <div class="sidebar-section hidden" id="graphCfg">
+        <h4><i class="ph ph-graph"></i> 图谱</h4>
+        <select id="graphSelect" onchange="updateGraphInfo()"><option value="">选择图谱...</option></select>
+        <div style="font-size:10px;color:var(--text2);margin-top:4px" id="graphSelectInfo"></div>
+        <div class="slider-row" style="margin-top:8px">
+          <label>搜索深度</label>
+          <input type="range" id="graphHops" min="1" max="3" value="2" oninput="document.getElementById('graphHopsVal').textContent=this.value">
+          <span class="val" id="graphHopsVal">2</span>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <h4><i class="ph ph-robot"></i> 模型</h4>
+        <select id="qaModel"><option value="">加载中...</option></select>
+      </div>
+
+      <div class="sidebar-section">
+        <h4><i class="ph ph-chart-bar"></i> 上下文预算</h4>
+        <div class="slider-row"><label>总预算</label><input type="range" id="budgetTotal" min="2048" max="65536" value="8192" step="1024" oninput="updateBudget()"><span class="val" id="budgetTotalVal">8192</span></div>
+        <div class="slider-row"><label>回答保留</label><input type="range" id="budgetReserve" min="512" max="16384" value="2048" step="512" oninput="updateBudget()"><span class="val" id="budgetReserveVal">2048</span></div>
+        <div class="slider-row"><label>每篇上限</label><input type="range" id="budgetPerSource" min="200" max="8000" value="1200" step="200" oninput="updateBudget()"><span class="val" id="budgetPerSourceVal">1200</span></div>
+        <div class="slider-row"><label>最多篇数</label><input type="range" id="budgetMaxSources" min="1" max="20" value="5" step="1" oninput="updateBudget()"><span class="val" id="budgetMaxSourcesVal">5</span></div>
+      </div>
+
+      <div class="sidebar-section">
+        <h4><i class="ph ph-lightning"></i> 选项</h4>
+        <label class="opt-row"><input type="checkbox" id="hybridMode" checked> 混合检索 (BM25 + Embedding)</label>
+        <label class="opt-row"><input type="checkbox" id="graphExpand" checked> 图谱 2-hop 扩展</label>
+        <label class="opt-row"><input type="checkbox" id="useEmbedding" checked> Qwen Embedding 语义搜索</label>
+      </div>
+
+      <div class="sidebar-section">
+        <button onclick="newSession()" style="width:100%;padding:6px;background:#fff;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:12px;color:var(--text)">+ 新建对话</button>
+      </div>
+    </div>
+
+    <!-- ═══ Chat Area ═══ -->
+    <div class="chat-area">
+      <button class="toggle-sidebar" onclick="toggleSidebar()" title="折叠侧栏"><i class="ph ph-caret-left"></i></button>
+      <div class="chat-messages" id="chatMessages">
+        <div class="chat-empty" id="chatEmpty">
+          <div class="icon"><i class="ph ph-chat-circle-dots" style="font-size:48px"></i></div>
+          <h2>知识问答</h2>
+          <p>选择左侧知识源，输入问题开始对话。<br>支持 Wiki 文档检索、知识图谱探索、多源融合问答。</p>
+        </div>
+      </div>
+      <div class="chat-input-area">
+        <div class="chat-input-wrap">
+          <textarea id="chatInput" rows="1" placeholder="输入问题... (Enter 发送, Shift+Enter 换行)" onkeydown="onInputKey(event)" oninput="autoResize(this)"></textarea>
+          <button id="sendBtn" onclick="sendMessage()" title="发送"><i class="ph ph-arrow-up"></i></button>
+        </div>
+        <div class="chat-input-info" id="chatInputInfo">
+          <span id="infoModel">模型: -</span><span id="infoSource">知识源: Wiki</span><span id="infoBudget">预算: 8K</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ Right Context Panel ═══ -->
+    <div class="ctx-panel" id="ctxPanel">
+      <div class="ctx-panel-header">
+        <i class="ph ph-file-text"></i> 上下文 <span id="ctxCount" style="font-size:11px;color:var(--text2);font-weight:400"></span>
+        <button onclick="toggleCtx()" title="折叠"><i class="ph ph-x"></i></button>
+      </div>
+      <div class="ctx-panel-body" id="ctxBody">
+        <div style="color:var(--text2);font-size:12px;text-align:center;padding:40px 0">发送问题后<br>显示召回上下文</div>
+        <div id="graphMount" style="display:none"></div>
+        <div class="node-detail" id="nodeDetail">
+          <div class="nd-label"></div>
+          <div class="nd-content" style="font-size:12px;line-height:1.5"></div>
+        </div>
+      </div>
+    </div>
+    <button class="toggle-ctx" onclick="toggleCtx()" title="折叠上下文"><i class="ph ph-caret-right"></i></button>
+  </div>
+</div>
+
+<!-- Source document popup -->
+<div class="src-overlay" id="srcOverlay" onclick="if(event.target===this)closeSrcModal()">
+  <div class="src-modal">
+    <div class="src-modal-header">
+      <h3 id="srcModalTitle">文档</h3>
+      <button class="src-modal-close" onclick="closeSrcModal()"><i class="ph ph-x"></i></button>
+    </div>
+    <div class="src-modal-body" id="srcModalBody"></div>
+  </div>
+</div>
+
+<script>
+var API = '/api/knowledge-qa';
+var token = localStorage.getItem('qa_token') || '';
+var currentMode = 'wiki';
+var currentSources = [];
+var currentGraphData = null;
+var g6Graph = null;
+var availableGraphs = [];
+var messages = [];
+var isProcessing = false;
+
+// ── Init ──
+function init() {
+  if (token) { document.getElementById('apiToken').value = token; checkToken(); }
+  else { autoGetToken(); }  // dev mode auto-token
+  fetch('/api/knowledge/projects').then(function(r){return r.json()}).then(function(data){
+    if (!data.success) return;
+    var sel = document.getElementById('qaProject');
+    (data.projects||[]).forEach(function(p){sel.innerHTML+='<option value="'+p.slug+'">'+p.name+' ('+p.pages+'页)</option>'});
+  }).catch(function(){});
+  loadGraphList();
+  loadModelList();
+  updateBudget();
+  updateInputInfo();
+}
+
+function autoGetToken() {
+  fetch(API + '/token', { method: 'POST' }).then(function(r){return r.json()}).then(function(data){
+    if (data.token) {
+      token = data.token;
+      document.getElementById('apiToken').value = token;
+      localStorage.setItem('qa_token', token);
+      checkToken();
+    }
+  }).catch(function(){});
+}
+
+function loadGraphList() {
+  var sel = document.getElementById('graphSelect');
+  sel.innerHTML = '<option value="">加载中...</option>';
+  fetch(API + '/graphs').then(function(r){return r.json()}).then(function(data){
+    if (!data.success) { sel.innerHTML = '<option value="">加载失败</option>'; return; }
+    availableGraphs = data.graphs || [];
+    sel.innerHTML = '<option value="">选择图谱...</option>';
+    // 按图谱名称分组，同一图谱的多个版本用 optgroup 组织
+    var groups = {};
+    var groupOrder = [];
+    availableGraphs.forEach(function(g){
+      var key = g.name;
+      if (!groups[key]) { groups[key] = []; groupOrder.push(key); }
+      groups[key].push(g);
+    });
+    groupOrder.forEach(function(name){
+      var versions = groups[name];
+      // 如果只有一个版本，直接作为 option
+      if (versions.length === 1) {
+        var g = versions[0];
+        var label = name + ' [' + g.version + '] (' + g.nodes + 'N/' + g.edges + 'E)';
+        if (g.active) label = '★ ' + label;
+        sel.innerHTML += '<option value="'+g.id+'">'+label+'</option>';
+      } else {
+        // 多个版本用 optgroup
+        var html = '<optgroup label="'+name+' ('+versions.length+'个版本)">';
+        versions.forEach(function(g){
+          var label = g.version + ' (' + g.nodes + 'N/' + g.edges + 'E)';
+          if (g.active) label = '★ ' + label;
+          if (g.note) label += ' - ' + g.note;
+          html += '<option value="'+g.id+'">'+label+'</option>';
+        });
+        html += '</optgroup>';
+        sel.innerHTML += html;
+      }
+    });
+  }).catch(function(){
+    sel.innerHTML = '<option value="">加载失败，请刷新重试</option>';
+  });
+}
+
+function loadModelList() {
+  fetch('/api/knowledge-qa/models').then(function(r){return r.json()}).then(function(data){
+    if (!data.success) return;
+    var sel = document.getElementById('qaModel');
+    sel.innerHTML = '';
+    data.models.forEach(function(m){
+      var label = m.id;
+      if (m.provider === 'deepseek') label = 'DeepSeek Chat';
+      else if (m.provider === 'qwen') label = 'Qwen Plus ('+(m.model||'')+')';
+      else if (m.provider === 'kimi') label = 'Kimi ('+(m.model||'')+')';
+      else label = m.provider + ': ' + m.model;
+      sel.innerHTML += '<option value="'+m.id+'">'+label+'</option>';
+    });
+    sel.value = data.models[0]?.id || '';
+    updateInputInfo();
+  }).catch(function(){
+    document.getElementById('qaModel').innerHTML = '<option value="deepseek-chat">DeepSeek Chat</option><option value="qwen-plus">Qwen Plus</option>';
+  });
+}
+
+// ── Token ──
+function checkToken() {
+  token = document.getElementById('apiToken').value.trim();
+  localStorage.setItem('qa_token', token);
+  var s = document.getElementById('tokenStatus');
+  if (token) {
+    fetch(API + '/health', {headers:{'Authorization':'Bearer '+token}}).then(function(r){
+      s.innerHTML = r.ok ? '<span class="badge badge-ok"><i class="ph ph-check" style="font-size:10px"></i></span>' : '<span class="badge" style="background:#fdf0ef;color:var(--red);border:1px solid #f0c8c5"><i class="ph ph-x" style="font-size:10px"></i></span>';
+    });
+  } else { s.innerHTML = ''; }
+}
+
+// ── Mode ──
+function switchMode(mode) {
+  currentMode = mode;
+  document.querySelectorAll('#modeRadio label').forEach(function(l){l.classList.remove('active')});
+  document.querySelector('#modeRadio input[value="'+mode+'"]').parentElement.classList.add('active');
+  document.getElementById('wikiCfg').classList.toggle('hidden', mode === 'graph');
+  document.getElementById('graphCfg').classList.toggle('hidden', mode === 'wiki');
+  updateInputInfo();
+}
+
+// ── Budget ──
+function updateBudget() {
+  ['Total','Reserve','PerSource','MaxSources'].forEach(function(k){
+    var el = document.getElementById('budget'+k);
+    var disp = document.getElementById('budget'+k+'Val');
+    if (el && disp) disp.textContent = el.value;
+  });
+  updateInputInfo();
+}
+
+function getBudget() {
+  return {
+    totalTokens: parseInt(document.getElementById('budgetTotal').value) || 8192,
+    reserveForAnswer: parseInt(document.getElementById('budgetReserve').value) || 2048,
+    perSourceTokens: parseInt(document.getElementById('budgetPerSource').value) || 1200,
+    maxSources: parseInt(document.getElementById('budgetMaxSources').value) || 5,
+  };
+}
+
+function updateInputInfo() {
+  var modelSel = document.getElementById('qaModel');
+  var modelName = modelSel.options[modelSel.selectedIndex]?.text || '-';
+  document.getElementById('infoModel').textContent = '模型: ' + modelName;
+  var modeLabels = {wiki:'Wiki',graph:'图谱',fusion:'融合'};
+  document.getElementById('infoSource').textContent = '知识源: ' + (modeLabels[currentMode]||'Wiki');
+  document.getElementById('infoBudget').textContent = '预算: ' + (document.getElementById('budgetTotal')?.value || '8K');
+}
+
+// ── Chat ──
+function onInputKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+function addMessage(role, content, meta) {
+  messages.push({role:role, content:content, meta:meta||{}, time:new Date().toISOString()});
+  renderMessages();
+}
+
+function updateLastMessage(content, meta) {
+  var last = messages[messages.length-1];
+  if (last) { last.content = content; if (meta) last.meta = meta; }
+  renderMessages();
+}
+
+function renderMessages() {
+  var container = document.getElementById('chatMessages');
+  var empty = document.getElementById('chatEmpty');
+  if (messages.length === 0) {
+    empty.style.display = 'flex';
+    container.innerHTML = '';
+    container.appendChild(empty);
+    return;
+  }
+  empty.style.display = 'none';
+
+  var html = '';
+  messages.forEach(function(msg, i) {
+    var isUser = msg.role === 'user';
+    html += '<div class="msg-row ' + (isUser ? 'user' : 'assistant') + '">';
+    html += '<div class="msg-avatar">' + (isUser ? 'U' : 'AI') + '</div>';
+    html += '<div style="flex:1;min-width:0">';
+    html += '<div class="msg-bubble">' + (msg.content ? marked.parse(msg.content) : '<div class="typing-dots"><span></span><span></span><span></span></div>') + '</div>';
+
+    // Source chips
+    if (!isUser && msg.meta.sources && msg.meta.sources.length) {
+      html += '<div class="msg-sources">';
+      msg.meta.sources.forEach(function(s, j) {
+        html += '<span class="msg-src-chip" onclick="showSourceModal(\''+(s.title||'').replace(/'/g,"\\'")+'\','+i+','+j+')"><span class="idx">'+(j+1)+'</span>'+s.title+'</span>';
+      });
+      html += '</div>';
+    }
+
+    // Meta tags
+    if (!isUser) {
+      html += '<div class="msg-meta">';
+      if (msg.meta.model) html += '<span class="tag tag-model">'+msg.meta.model+'</span>';
+      if (msg.meta.budget) html += '<span class="tag tag-budget">'+msg.meta.budget+' tokens</span>';
+      if (msg.meta.graphExpanded) html += '<span class="tag tag-graph">graph 2-hop</span>';
+      if (msg.meta.embeddingsUsed) html += '<span class="tag tag-graph">embedding</span>';
+      html += '<span>'+new Date(msg.time).toLocaleTimeString()+'</span>';
+      html += '</div>';
+    }
+    html += '</div></div>';
+  });
+
+  // Keep empty element
+  html += '<div id="chatEmpty" style="display:none" class="chat-empty"><div class="icon"><i class="ph ph-chat-circle-dots" style="font-size:48px"></i></div><h2>知识问答</h2></div>';
+
+  container.innerHTML = html;
+  container.scrollTop = container.scrollHeight;
+}
+
+function sendMessage() {
+  if (isProcessing) return;
+  var input = document.getElementById('chatInput');
+  var q = input.value.trim();
+  if (!q) return;
+
+  var mode = currentMode;
+  var wikiProject = document.getElementById('qaProject').value || undefined;
+  var graphId = document.getElementById('graphSelect').value || undefined;
+  var model = document.getElementById('qaModel').value;
+
+  if (mode === 'graph' && !graphId) { alert('请选择知识图谱'); return; }
+
+  input.value = '';
+  input.style.height = 'auto';
+  isProcessing = true;
+  document.getElementById('sendBtn').disabled = true;
+
+  // Add user message
+  addMessage('user', q, {});
+  // Add placeholder assistant message
+  addMessage('assistant', '', { model: model, budget: getBudget().totalTokens });
+
+  // Execute
+  if (mode === 'wiki') askWiki(q, wikiProject, model);
+  else if (mode === 'graph') askGraph(q, graphId, model);
+  else askFusion(q, wikiProject, graphId, model);
+}
+
+function finishMessage(content, meta) {
+  updateLastMessage(content, meta);
+  isProcessing = false;
+  document.getElementById('sendBtn').disabled = false;
+}
+
+function handleError(msg) {
+  updateLastMessage('请求失败: ' + msg, { budget: 0 });
+  isProcessing = false;
+  document.getElementById('sendBtn').disabled = false;
+}
+
+// ── Wiki Mode ──
+async function askWiki(q, project, model) {
+  var budget = getBudget();
+  var body = {
+    question: q, project: project, model: model, topK: budget.maxSources,
+    budget: budget,
+    includeGraph: document.getElementById('graphExpand').checked,
+    useEmbedding: document.getElementById('useEmbedding').checked,
+  };
+  try {
+    var r = await fetch(API + '/ask', { method: 'POST', headers: authHeaders(), body: JSON.stringify(body) });
+    var data = await r.json();
+    currentSources = data.sources || [];
+    renderCtxPanel();
+    finishMessage(data.answer || '无回答', {
+      model: model, budget: data.budget?.used || 0,
+      sources: data.sources || [],
+      graphExpanded: data.budget?.graphExpanded,
+      embeddingsUsed: data.budget?.embeddingsUsed,
+    });
+  } catch(e) { handleError(e.message); }
+}
+
+// ── Graph Mode (Agent-powered) ──
+async function askGraph(q, graphId, model) {
+  // Build history from recent messages (exclude current user msg + placeholder)
+  var history = [];
+  for (var i = 0; i < messages.length - 2; i++) {
+    var m = messages[i];
+    if ((m.role === 'user' || m.role === 'assistant') && m.content && m.content.length > 2) {
+      history.push({ role: m.role, content: m.content });
+    }
+  }
+  if (history.length > 8) history = history.slice(-8);
+
+  try {
+    var response = await fetch('/api/knowledge-qa-agent/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: q, graphId: graphId, history: history })
+    });
+
+    if (!response.ok) {
+      handleError('Agent返回错误 (' + response.status + ')');
+      return;
+    }
+
+    var reader = response.body.getReader();
+    var decoder = new TextDecoder();
+    var buffer = '';
+    var agentPhases = [];
+    var answer = '';
+
+    while (true) {
+      var chunk = await reader.read();
+      if (chunk.done) break;
+      buffer += decoder.decode(chunk.value, { stream: true });
+
+      // Parse complete SSE events (separated by \n\n)
+      var events = buffer.split('\n\n');
+      buffer = events.pop();
+
+      for (var evt of events) {
+        var lines = evt.split('\n');
+        var eventType = '';
+        var eventData = '';
+        for (var line of lines) {
+          if (line.startsWith('event: ')) eventType = line.slice(7).trim();
+          else if (line.startsWith('data: ')) eventData = line.slice(6);
+        }
+        if (!eventType) continue;
+
+        try { var parsed = JSON.parse(eventData); } catch(e) { continue; }
+
+        if (eventType === 'phase') {
+          agentPhases.push(parsed);
+          var phaseHtml = agentPhases.map(function(p) {
+            var icon = p.status === 'done' ? '<i class="ph ph-check-circle" style="color:var(--green)"></i>' : '<i class="ph ph-circle-notch phase-icon-spin" style="color:var(--accent)"></i>';
+            return icon + ' **' + p.name + '**' + (p.detail ? ' — ' + p.detail : '');
+          }).join('\n\n');
+          updateLastMessage(phaseHtml + '\n\n<div class="typing-dots"><span></span><span></span><span></span></div>', { model: model });
+        } else if (eventType === 'result') {
+          answer = parsed.answer || '';
+        } else if (eventType === 'error') {
+          handleError(parsed.error || 'Agent错误');
+          return;
+        } else if (eventType === 'done') {
+          if (answer) {
+            finishMessage(answer, { model: model });
+          } else {
+            finishMessage('Agent未返回结果', { model: model });
+          }
+          currentGraphData = null;
+          currentSources = [];
+          renderAgentPhases(agentPhases);
+          return;
+        }
+      }
+    }
+
+    if (answer) {
+      finishMessage(answer, { model: model });
+    } else {
+      finishMessage('Agent连接中断', { model: model });
+    }
+  } catch(e) {
+    handleError(e.message);
+  }
+}
+
+function renderAgentPhases(phases) {
+  var body = document.getElementById('ctxBody');
+  var count = document.getElementById('ctxCount');
+  var mount = document.getElementById('graphMount');
+  var nd = document.getElementById('nodeDetail');
+  if (mount) mount.style.display = 'none';
+  if (nd) nd.classList.remove('show');
+
+  count.textContent = phases.length + ' 步';
+  var html = '<div style="font-size:11px;color:var(--accent);margin-bottom:10px;padding:8px 10px;background:var(--bg3);border-radius:6px;font-weight:600"><i class="ph ph-robot"></i> Agent 推理过程</div>';
+  phases.forEach(function(p, i) {
+    var icon = p.status === 'done' ? '<i class="ph ph-check-circle" style="color:var(--green)"></i>' : '<i class="ph ph-circle-notch phase-icon-spin" style="color:var(--accent)"></i>';
+    html += '<div class="ctx-source-item"><div class="src-title">' + icon + ' ' + p.name + '</div>';
+    if (p.detail) html += '<div class="src-snippet">' + p.detail + '</div>';
+    html += '</div>';
+  });
+  body.innerHTML = html;
+  if (mount && !body.contains(mount)) body.appendChild(mount);
+  if (nd && !body.contains(nd)) body.appendChild(nd);
+}
+
+// ── Fusion Mode ──
+async function askFusion(q, wikiProject, graphId, model) {
+  var results = [];
+  if (wikiProject) {
+    try {
+      var wBody = { question: q, project: wikiProject, model: model, budget: getBudget(), includeGraph: false, useEmbedding: true };
+      var wr = await fetch(API + '/ask', { method: 'POST', headers: authHeaders(), body: JSON.stringify(wBody) });
+      var wData = await wr.json();
+      results.push({ source: 'Wiki', answer: wData.answer, sources: wData.sources });
+      currentSources = wData.sources || [];
+    } catch(e) {}
+  }
+  if (graphId) {
+    try {
+      var agentBody = { message: q, graphId: graphId };
+      var ar = await fetch('/api/knowledge-qa-agent/query', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(agentBody) });
+      var aData = await ar.json();
+      if (aData.success !== false) { results.push({ source: 'Graph', context: aData.answer || '' }); }
+    } catch(e) {}
+  }
+  renderCtxPanel();
+
+  if (!results.length) { finishMessage('无可用知识源', {model:model}); return; }
+
+  var wikiR = results.find(function(r){return r.source==='Wiki'});
+  var graphR = results.find(function(r){return r.source==='Graph'});
+  var fusionPrompt = '综合多源知识回答问题。\n\n';
+  if (wikiR) fusionPrompt += '【Wiki】\n' + (wikiR.answer||'').slice(0, 2000) + '\n\n';
+  if (graphR) fusionPrompt += '【图谱】\n' + (graphR.context||'').slice(0, 2000) + '\n\n';
+  fusionPrompt += '问题: ' + q + '\n\n综合回答并标注 [Wiki] / [Graph] 来源。';
+
+  var fBody = { question: fusionPrompt, model: model, direct: true, budget: getBudget() };
+  try {
+    var fr = await fetch(API + '/ask', { method: 'POST', headers: authHeaders(), body: JSON.stringify(fBody) });
+    var fData = await fr.json();
+    finishMessage(fData.answer||'融合失败', {model:model, sources: currentSources, budget: fData.budget?.used});
+  } catch(e) { handleError(e.message); }
+}
+
+// ── Context Panel ──
+function renderCtxPanel() {
+  var body = document.getElementById('ctxBody');
+  var count = document.getElementById('ctxCount');
+  var mount = document.getElementById('graphMount');
+  var nd = document.getElementById('nodeDetail');
+
+  // Hide graph by default
+  if (mount) mount.style.display = 'none';
+  if (nd) nd.classList.remove('show');
+
+  if (!currentSources.length && !currentGraphData) {
+    body.innerHTML = '<div style="color:var(--text2);font-size:12px;text-align:center;padding:40px 0">发送问题后<br>显示召回上下文</div>';
+    // Re-append graph mount
+    if (mount && !body.contains(mount)) body.appendChild(mount);
+    if (nd && !body.contains(nd)) body.appendChild(nd);
+    count.textContent = '';
+    return;
+  }
+
+  count.textContent = (currentSources.length ? currentSources.length+' 篇' : '') +
+    (currentGraphData ? (currentSources.length?' · ':'') + (currentGraphData.stats?.subNodes||0)+' 节点' : '');
+
+  var html = '';
+  // Graph stats
+  if (currentGraphData && currentGraphData.stats) {
+    html += '<div style="font-size:11px;color:var(--text2);margin-bottom:10px;padding:8px 10px;background:var(--bg3);border-radius:6px">';
+    html += '全图: <b>'+(currentGraphData.stats.totalNodes||0)+'</b> 节点 / <b>'+(currentGraphData.stats.totalEdges||0)+'</b> 边';
+    if (currentGraphData.seeds && currentGraphData.seeds.length) {
+      html += ' | 种子: ';
+      currentGraphData.seeds.slice(0,5).forEach(function(s,i){html += '<b>'+(s.label||s.id)+'</b>'+(i<Math.min(4,currentGraphData.seeds.length-1)?', ':'');});
+    }
+    html += '</div>';
+  }
+  // Source docs
+  currentSources.forEach(function(s, i) {
+    var title = s.title || s.id || ('文档'+(i+1));
+    html +=
+      '<div class="ctx-source-item" onclick="this.classList.toggle(\'expanded\')">' +
+        '<div class="src-title">['+(i+1)+'] '+title+'</div>' +
+        '<div class="src-expand"><em>点击消息中的来源标签查看完整内容</em></div>' +
+      '</div>';
+  });
+  body.innerHTML = html;
+  // Re-append graph elements
+  if (mount && !body.contains(mount)) body.appendChild(mount);
+  if (nd && !body.contains(nd)) body.appendChild(nd);
+}
+
+function renderSubgraph(gData) {
+  var mount = document.getElementById('graphMount');
+  if (!mount) return;
+  var sub = gData.subgraph;
+  if (!sub) return;
+  var nodes = sub.nodes || [];
+  var edges = sub.edges || [];
+  mount.style.display = 'block';
+  if (!nodes.length) { mount.innerHTML = '<div style="color:var(--text2);text-align:center;padding:40px">无子图</div>'; return; }
+
+  if (g6Graph) { g6Graph.destroy(); g6Graph = null; }
+  mount.innerHTML = '<div style="color:var(--text2);text-align:center;padding:60px">加载中...</div>';
+
+  var g6Nodes = nodes.map(function(n){return {id:String(n.id||n.label||''),data:{label:String(n.label||n.id||'').slice(0,25),dist:n.dist||0,fullNode:n}}});
+  var g6Edges = edges.map(function(e,i){return {id:'e'+i,source:String(e.source||e.from||e.start||''),target:String(e.target||e.to||e.end||''),data:{weight:e.weight||1}}});
+
+  setTimeout(function(){
+    var { Graph } = window.G6 || {};
+    if (!Graph) { mount.innerHTML = '<div style="color:var(--text2);text-align:center;padding:40px">G6 未加载</div>'; return; }
+    mount.innerHTML = '';
+    g6Graph = new Graph({
+      container: 'graphMount', width: mount.clientWidth, height: 280,
+      data: { nodes: g6Nodes, edges: g6Edges },
+      layout: { type: 'force', preventOverlap: true, nodeStrength: -150, edgeStrength: 0.2 },
+      node: {
+        style: function(d){var dist=d.data?d.data.dist||0:0;var colors=['#1677ff','#0f766e','#a96813'];return {fill:colors[Math.min(dist,2)],size:dist===0?32:24}},
+        labelText: function(d){return d.data?d.data.label||'':''},
+        labelFontSize: 9, labelFill: '#333', labelPlacement: 'bottom', labelOffsetY: 4,
+        state: { selected: { stroke: '#c13b32', lineWidth: 2 } },
+      },
+      edge: { style: { stroke: '#c0c8d0', lineWidth: 1 } },
+      behaviors: ['drag-canvas','zoom-canvas','drag-element'],
+      autoFit: 'view',
+    });
+    g6Graph.render();
+    g6Graph.on('node:click', function(evt){
+      var nd = evt.target?.id;
+      if (!nd) return;
+      var nodeData = nodes.find(function(n){return String(n.id||n.label||'')===nd});
+      if (!nodeData) return;
+      var full = nodeData.fullNode || nodeData;
+      var detail = document.getElementById('nodeDetail');
+      if (!detail) return;
+      detail.querySelector('.nd-label').textContent = full.label || full.name || full.id || nd;
+      detail.querySelector('.nd-content') && (detail.querySelector('.nd-content').innerHTML = marked.parse(full.description||full.summary||full.desc||''));
+      detail.classList.add('show');
+    });
+  }, 50);
+}
+
+// ── Source Modal ──
+var sourceContentCache = {};
+function showSourceModal(title, msgIdx, srcIdx) {
+  var src = currentSources[srcIdx];
+  if (!src) return;
+  document.getElementById('srcModalTitle').textContent = '['+(srcIdx+1)+'] ' + (src.title || '文档');
+  var body = document.getElementById('srcModalBody');
+  body.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
+  document.getElementById('srcOverlay').classList.add('show');
+
+  // Load full content on demand
+  var cacheKey = currentMode + '_' + srcIdx;
+  if (sourceContentCache[cacheKey]) {
+    body.innerHTML = marked.parse(sourceContentCache[cacheKey]);
+    return;
+  }
+  // Try to load from wiki
+  var project = document.getElementById('qaProject').value || '';
+  fetch(API.replace('/knowledge-qa','/knowledge') + '/pages/get?project='+encodeURIComponent(project)+'&page='+encodeURIComponent(src.id||src.title||''))
+    .then(function(r){return r.json()})
+    .then(function(data){
+      var content = data.content || data.page?.content || '';
+      sourceContentCache[cacheKey] = content;
+      body.innerHTML = content ? marked.parse(content) : '(文档内容加载失败)';
+    })
+    .catch(function(){
+      body.innerHTML = '(文档内容加载失败)';
+    });
+}
+function closeSrcModal() { document.getElementById('srcOverlay').classList.remove('show'); }
+
+// ── Toggle panels ──
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('collapsed');
+}
+function toggleCtx() {
+  document.getElementById('ctxPanel').classList.toggle('collapsed');
+}
+
+// ── Utils ──
+function authHeaders() {
+  var h = {'Content-Type': 'application/json'};
+  if (token) h['Authorization'] = 'Bearer ' + token;
+  return h;
+}
+function newSession() {
+  messages = [];
+  currentSources = [];
+  currentGraphData = null;
+  sourceContentCache = {};
+  if (g6Graph) { g6Graph.destroy(); g6Graph = null; }
+  var mount = document.getElementById('graphMount');
+  if (mount) { mount.style.display = 'none'; mount.innerHTML = ''; }
+  var nd = document.getElementById('nodeDetail');
+  if (nd) nd.classList.remove('show');
+  renderMessages();
+  renderCtxPanel();
+}
+function updateGraphInfo() {
+  var gid = document.getElementById('graphSelect').value;
+  var info = document.getElementById('graphSelectInfo');
+  if (gid && availableGraphs.length) {
+    var g = availableGraphs.find(function(x){return x.id===gid});
+    if (g) info.textContent = g.nodes+' 节点 · '+g.edges+' 边 · '+g.sizeKB+'KB';
+    else info.textContent = '';
+  } else { info.textContent = ''; }
+  updateInputInfo();
+}
+
+document.getElementById('qaModel').addEventListener('change', updateInputInfo);
+document.getElementById('qaProject').addEventListener('change', updateInputInfo);
+document.getElementById('graphSelect').addEventListener('change', function(){updateGraphInfo();updateInputInfo()});
+
+init();
+</script>
+</body>
+</html>

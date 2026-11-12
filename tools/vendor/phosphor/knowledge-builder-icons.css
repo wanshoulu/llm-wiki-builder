@@ -1,0 +1,29 @@
+@font-face {
+  font-family: "Phosphor";
+  src: url("./Phosphor.woff2") format("woff2");
+  font-weight: normal;
+  font-style: normal;
+  font-display: block;
+}
+
+.ph {
+  font-family: "Phosphor" !important;
+  speak: never;
+  font-style: normal;
+  font-weight: normal;
+  font-variant: normal;
+  text-transform: none;
+  line-height: 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.ph-arrow-square-out::before { content: "\e5de"; }
+.ph-caret-right::before { content: "\e13a"; }
+.ph-chart-line-up::before { content: "\e156"; }
+.ph-git-diff::before { content: "\e27c"; }
+.ph-graph::before { content: "\eb58"; }
+.ph-hexagon::before { content: "\e2ae"; }
+.ph-magnifying-glass::before { content: "\e30c"; }
+.ph-package::before { content: "\e390"; }
+.ph-squares-four::before { content: "\e464"; }

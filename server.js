@@ -34,6 +34,7 @@ process.env.SKIP_AUTH = process.env.SKIP_AUTH || 'true';
 const { handleKnowledgeStudioRequest } = require('./routes/knowledge-studio');
 const { handleKnowledgeStudioLiteRequest } = require('./routes/knowledge-studio-lite');
 const { handleKnowledgeBuilderWikiRequest } = require('./routes/knowledge-builder-wiki-api');
+const { handleKnowledgeQARequest } = require('./routes/knowledge-qa-api');
 
 const PORT = Number(process.env.PORT || 3014);
 const HOST = process.env.HOST || '127.0.0.1';
@@ -79,6 +80,23 @@ function serveStatic(res, pathname, urlPrefix, diskRoot) {
   return serveFile(res, abs);
 }
 
+/** 知识问答 Agent 代理：/api/knowledge-qa-agent/* → KNOWLEDGE_QA_AGENT_URL（Python 服务，默认 :8100）。
+ *  未配置/不可达时返回 502 明确降级（知识问答页的 Agent 对话通道，基础问答走 /api/knowledge-qa/* 不受影响）。 */
+function proxyToQaAgent(req, res) {
+  const base = process.env.KNOWLEDGE_QA_AGENT_URL;
+  if (!base) {
+    return sendJson(res, 502, { ok: false, error: 'QA_AGENT_NOT_CONFIGURED', hint: '设置 KNOWLEDGE_QA_AGENT_URL 指向知识问答 Agent 服务（如 http://127.0.0.1:8100）' });
+  }
+  const target = base.replace(/\/+$/, '') + req.url.replace('/api/knowledge-qa-agent', '');
+  const u2 = new URL(target);
+  const proxyReq = http.request(u2, { method: req.method, headers: { ...req.headers, host: u2.host } }, (proxyRes) => {
+    res.writeHead(proxyRes.statusCode || 502, proxyRes.headers);
+    proxyRes.pipe(res);
+  });
+  proxyReq.on('error', () => sendJson(res, 502, { ok: false, error: 'QA_AGENT_UNREACHABLE', target: u2.origin }));
+  req.pipe(proxyReq);
+}
+
 const server = http.createServer((req, res) => {
   const u = new URL(req.url, `http://${HOST}:${PORT}`);
   req.pathname = decodeURIComponent(u.pathname);
@@ -109,7 +127,15 @@ const server = http.createServer((req, res) => {
   if (p.startsWith('/api/knowledge-builder/wiki/')) {
     return handleKnowledgeBuilderWikiRequest(req, res, u);
   }
-  // 2. Wiki 主体端点（projects/pages/ingest/graph/qa/search/raw/rag/queue/watcher + llm-wiki 兼容别名在 studio 内部处理）
+  // 1b. 知识问答 Agent（Python 服务代理，KNOWLEDGE_QA_AGENT_URL 未配置时返回 502 明确降级）
+  if (p.startsWith('/api/knowledge-qa-agent/')) {
+    return proxyToQaAgent(req, res);
+  }
+  // 1c. 知识问答应用端点（wiki 图谱问答 / GraphRAG 检索）
+  if (p.startsWith('/api/knowledge-qa/')) {
+    return handleKnowledgeQARequest(req, res);
+  }
+  // 2. Wiki 主体端点（projects/pages/ingest/graph/qa/search/raw/rag/queue/watcher + doc-review-agent 公文审核 9 端点 + llm-wiki 兼容别名在 studio 内部处理）
   //    studio-lite 只是单体「知识问答页」的两端点精简版（其 store 指向 data/wiki），这里仅作 pages/get 的兜底
   if (p.startsWith('/api/knowledge/') || p === '/api/knowledge') {
     if (req.method === 'GET' && p === '/api/knowledge/pages/get'

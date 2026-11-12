@@ -61,15 +61,19 @@ curl -X POST http://127.0.0.1:3014/api/knowledge/search -H 'Content-Type: applic
 # → {"success":true,"results":[...]}   关键词检索，离线可用
 ```
 
-## 前端页面（全部单文件、浅色统一、零 CDN）
+## 前端页面（原版设计、零 CDN）
 
 | 页面 | 路径 | 作用 |
 |------|------|------|
 | **LLM Wiki 工作台（主入口）** | `/tools/llm-wiki.html` | 项目扫描 → Wiki 管理 → 浏览 → 知识图谱 → 智能检索，五合一 |
+| **知识问答（Agent 应用）** | `/tools/knowledge-qa.html` | wiki 图谱问答 + GraphRAG 检索 + Agent 对话（Agent 通道需 `KNOWLEDGE_QA_AGENT_URL` 指向 Python 服务，未配置时该通道明确降级） |
+| **公文审核（Agent 应用）** | `/tools/doc-review-agent.html` | 上传 Word/PDF → 规则 + LLM 双通道审核 → 批注定位与回写（公文规范知识库 `doc-rules` 驱动：文种格式/标点/禁用词/引文核查） |
 | 知识库管理 | `/tools/wiki-library.html` | 库/页面 CRUD、RAG 索引构建、分块预览、图谱问答 |
 | 文档 Wiki 化 | `/tools/wiki-builder-standalone.html` | 上传 Word/PDF/Excel → 三阶段生成流水线（SSE 进度） |
 | Wiki 图谱化 | `/tools/wiki-graph-builder.html` | 实体关系抽取与可视化（LLM 增强/去重可选） |
 | 轻量版 ×2 | `llm-wiki-light.html` / `wiki-graph-builder-light.html` | 同功能的精简皮肤版 |
+
+> 知识问答与公文审核是 AI Harbor「基础工具 · AI 知识」区的两个 Agent 应用，与本仓库的知识链路同源（都消费 wiki 库与图谱），一并继承为 LLM Wiki 应用层；页面顶栏（appbar）在三者间互链。
 
 ## API 概览（完整契约见端点源码注释）
 
@@ -108,7 +112,7 @@ llm-wiki-builder/
 
 - **默认免鉴权**：`SKIP_AUTH=true` + 绑定 `127.0.0.1`；对外暴露前必须设 `SKIP_AUTH=false` + `JWT_SECRET`。
 - **LLM 能力需密钥**：生成/问答/图谱语义增强在未配置密钥时返回明确降级（qa 会退化为检索结果列表）；浏览/检索/图谱可视化离线可用。
-- **不含单体的大块能力**：MCP 工具协议、评测数据集、意图测试集、公文审核（doc-review-agent 端点）、知识看板（analytics）不在本仓库分发范围——它们属于 AI Harbor 的其他工作台。
+- **不含单体的大块能力**：MCP 工具协议、评测数据集、意图测试集、知识看板（analytics）不在本仓库分发范围——它们属于 AI Harbor 的其他工作台。公文审核与知识问答两个 Agent 应用已随本仓库继承。
 - **老 API 兼容**：`llm-wiki-api.js` / `wiki-graph-api.js` 在单体已标记 deprecated 并合并入 Knowledge Studio，本仓库直接采用合并版并保留 `/api/llm-wiki/*` 兼容别名。
 - **RAG 向量索引**：无密钥时退化为关键词检索；向量通道需要 embedding 模型密钥。
 
@@ -124,7 +128,8 @@ llm-wiki-builder/
 
 | 版本 | 说明 |
 |------|------|
-| **1.0.0**（当前） | 从 AI Harbor Knowledge Studio 剥离 wiki+RAG 子集：6 前端页统一浅色、CDN 本地化；修复源仓自带的 standalone 模板字符串转义笔误（6 处语法错误）；演示种子 3 库 54 页；六页无头浏览器实测 0 异常 |
+| **1.1.0**（当前） | 补齐 AI Harbor「AI 知识」区两个 Agent 应用：知识问答（GraphRAG + qa-agent 代理通道）与公文审核（规则+LLM 双通道 9 端点）；前端恢复单体原版设计（深浅双主题并存是原设计特性）；phosphor 图标与 appbar 顶栏补齐 |
+| 1.0.0 | 从 AI Harbor Knowledge Studio 剥离 wiki+RAG 子集：6 前端页、CDN 本地化；修复源仓自带的 standalone 模板字符串转义笔误（6 处语法错误）；演示种子 3 库 54 页；六页无头浏览器实测 0 异常 |
 
 ## 许可证
 

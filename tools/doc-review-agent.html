@@ -1,0 +1,1409 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>公文审阅 Agent | AI Harbor</title>
+<style>
+:root {
+  --bg: #f5f6f8; --card: #fff; --border: #e5e7eb;
+  --text: #1a1a2e; --text2: #6b7280; --text3: #9ca3af;
+  --blue: #1677ff; --green: #10b981; --orange: #f59e0b; --red: #ef4444; --purple: #8b5cf6;
+  --pastel-blue: #eff6ff; --pastel-green: #ecfdf5; --pastel-orange: #fffbeb; --pastel-red: #fef2f2; --pastel-purple: #f5f3ff;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: -apple-system,"Microsoft YaHei",sans-serif; background:var(--bg); height:100vh; display:flex; flex-direction:column; overflow:hidden; }
+
+/* Header */
+.header { background:#fff; border-bottom:1px solid var(--border); padding:8px 20px; display:flex; align-items:center; gap:12px; flex-shrink:0; }
+.header .logo { font-size:18px; }
+.header h1 { font-size:16px; font-weight:600; color:var(--text); }
+.header .badge { font-size:10px; padding:2px 8px; border-radius:10px; background:var(--pastel-blue); color:var(--blue); }
+.header .stats { margin-left:auto; display:flex; gap:12px; font-size:11px; color:var(--text2); }
+.header .stats span { display:flex; align-items:center; gap:3px; }
+.header .stats b { font-size:14px; font-weight:700; }
+.header-actions { display:flex; gap:6px; margin-left:12px; }
+.header-actions button { padding:3px 10px; font-size:11px; border:1px solid var(--border); border-radius:4px; background:#fff; cursor:pointer; }
+.header-actions button:hover { border-color:var(--blue); color:var(--blue); }
+
+/* Input bar — 底部固定，仿聊天布局 */
+.input-bar { background:#fff; border-top:1px solid var(--border); padding:8px 20px; display:flex; gap:8px; align-items:flex-end; flex-shrink:0; }
+.input-bar textarea { flex:1; border:1px solid var(--border); border-radius:6px; padding:6px 10px; font-size:12px; resize:none; outline:none; font-family:inherit; min-height:36px; max-height:80px; }
+.input-bar textarea:focus { border-color:var(--blue); }
+.input-bar button { padding:6px 16px; background:var(--blue); color:#fff; border:none; border-radius:6px; font-size:12px; cursor:pointer; white-space:nowrap; font-weight:500; }
+.input-bar button:disabled { opacity:0.5; }
+.knowledge-bar { display:flex; align-items:center; gap:8px; padding:6px 20px; background:#fff; border-bottom:1px solid var(--border); font-size:11px; flex-shrink:0; }
+.knowledge-bar label { color:var(--text2); font-weight:600; }
+.knowledge-bar select { min-width:260px; max-width:460px; padding:4px 28px 4px 8px; border:1px solid var(--border); border-radius:5px; background:#fff; color:var(--text); font-size:11px; }
+.knowledge-status { padding:2px 8px; border-radius:10px; background:var(--pastel-blue); color:var(--blue); }
+.knowledge-status.preview { background:var(--pastel-orange); color:#b45309; }
+.knowledge-status.error { background:var(--pastel-red); color:var(--red); }
+.quick-samples { display:flex; flex-wrap:wrap; gap:4px; padding:0 20px 6px; background:#fff; border-bottom:1px solid var(--border); flex-shrink:0; }
+.quick-samples button { padding:2px 10px; font-size:10px; border:1px solid var(--border); border-radius:10px; background:#fff; cursor:pointer; white-space:nowrap; transition:all 0.2s; }
+.quick-samples button:hover { border-color:var(--blue); color:var(--blue); background:var(--pastel-blue); }
+.quick-samples .label { font-size:10px; color:var(--text3); align-self:center; margin-right:2px; }
+
+/* Main: progress panel + doc + sidebar */
+.main { display:flex; flex:1; overflow:hidden; }
+.doc-view { flex:1; overflow-y:auto; padding:20px 32px; background:#fff; }
+.sidebar { width:340px; border-left:1px solid var(--border); background:var(--bg); overflow-y:auto; flex-shrink:0; }
+
+/* Left progress panel (仿 deep-research 管道面板) */
+.side-panel { width:340px; background:#fff; border-right:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden; flex-shrink:0; transition:width .25s ease; }
+.side-panel.side-expanded { width:660px; }
+/* 展开态 = 纯图谱模式：隐藏进度管道，图谱独占整列高度 */
+.side-panel.side-expanded .side-top { display:none; }
+.side-top { flex-shrink:0; max-height:44%; overflow-y:auto; padding:12px; }
+.side-top h3 { font-size:11px; color:var(--text2); margin-bottom:10px; }
+.pipe-node { position:relative; padding:7px 10px 7px 28px; margin-bottom:2px; border-left:2px solid var(--border); font-size:11px; color:var(--text3); transition:all 0.25s; }
+.pipe-node::before { content:''; position:absolute; left:-4px; top:10px; width:6px; height:6px; border-radius:50%; background:var(--border); }
+.pipe-node.phase { border-left-color:var(--red); background:var(--pastel-red); font-weight:700; font-size:12px; padding:9px 10px 9px 28px; color:var(--red); }
+.pipe-node.phase::before { background:var(--red); width:8px; height:8px; left:-5px; }
+.pipe-node.active { border-left-color:var(--orange); background:var(--pastel-orange); }
+.pipe-node.active::before { background:var(--orange); }
+.pipe-node.done { border-left-color:var(--green); background:var(--pastel-green); }
+.pipe-node.done::before { background:var(--green); }
+.pipe-node.done .node-detail { color:var(--green); }
+.pipe-node.err { border-left-color:var(--red); background:var(--pastel-red); }
+.pipe-node.err::before { background:var(--red); }
+.node-label { font-weight:700; color:var(--text); }
+.node-detail { color:var(--text2); font-size:10px; margin-top:2px; line-height:1.4; }
+.pipe-node.clickable { cursor:pointer; }
+.pipe-node .drill-arrow { font-size:9px; color:var(--text3); }
+.pipe-node.drilled .drill-arrow { display:inline-block; transform:rotate(90deg); }
+.pipe-drill { display:none; margin:6px 0 2px; padding:6px 8px; background:rgba(255,255,255,0.75); border-radius:4px; font-size:10px; line-height:1.55; color:var(--text2); }
+.pipe-drill.open { display:block; }
+.pipe-drill .drill-row { margin-bottom:2px; }
+.pipe-drill .drill-row b { color:var(--text); }
+.side-stats { padding:10px 12px; font-size:10px; color:var(--text2); border-top:1px solid var(--border); line-height:1.8; }
+.side-stats strong { color:var(--text); font-size:12px; }
+.rw-sug-cite { display:inline-block; margin-top:4px; font-size:10px; color:var(--purple); background:var(--pastel-purple); padding:1px 6px; border-radius:3px; }
+@media (max-width:1100px) { .side-panel { width:260px; } }
+
+/* wiki 知识图谱（G6 v5，与 Knowledge Studio 同款组件；d3-force + collide 防重叠） */
+.side-graph { flex:1; min-height:340px; border-top:1px solid var(--border); padding:10px 10px 6px; display:flex; flex-direction:column; }
+.side-graph-head { font-size:11px; font-weight:700; color:var(--text2); margin-bottom:6px; display:flex; justify-content:space-between; align-items:center; gap:6px; flex-shrink:0; }
+.side-graph-head .hint { font-size:9px; font-weight:400; color:var(--text3); }
+.side-graph-head .graph-actions { display:flex; gap:4px; flex-shrink:0; }
+.side-graph-head .graph-actions button { border:1px solid var(--border); background:#fff; border-radius:4px; font-size:9px; padding:2px 8px; cursor:pointer; color:var(--text2); white-space:nowrap; }
+.side-graph-head .graph-actions button:hover { border-color:var(--blue); color:var(--blue); }
+.side-graph-head .graph-actions button.on { border-color:var(--blue); color:var(--blue); background:var(--pastel-blue); }
+.recall-bar { margin-bottom:6px; padding:6px 8px; background:#f0f6ff; border:1px solid #d4e4ff; border-radius:6px; font-size:10px; color:var(--text2); display:none; flex-shrink:0; max-height:80px; overflow-y:auto; }
+.recall-bar.active { display:block; }
+.recall-bar__title { font-weight:700; color:var(--blue); margin-bottom:4px; font-size:10px; }
+.recall-chip { display:inline-block; padding:1px 7px; margin:2px 3px 2px 0; background:#fff; border:1px solid #1677ff; border-radius:10px; font-size:10px; color:#1677ff; cursor:pointer; transition:all .15s; }
+.recall-chip:hover { background:#1677ff; color:#fff; }
+.recall-chip.role-seed { border-color:#f97316; color:#f97316; }
+.recall-chip.role-seed:hover { background:#f97316; color:#fff; }
+.recall-chip.role-evidence { border-color:#3b82f6; color:#3b82f6; }
+.recall-chip.role-evidence:hover { background:#3b82f6; color:#fff; }
+#wikiGraph { width:100%; flex:1; min-height:280px; background:#fafbfc; border:1px solid var(--border); border-radius:6px; cursor:pointer; transition:border-color .2s, box-shadow .2s; }
+#wikiGraph:hover { border-color:var(--blue); box-shadow:0 0 0 3px var(--pastel-blue); }
+#wikiGraphLegend { margin-top:6px; max-height:178px; overflow-y:auto; font-size:10px; color:var(--text2); line-height:1.7; flex-shrink:0; }
+.recall-list { display:grid; gap:4px; margin-top:5px; }
+.recall-item { width:100%; display:grid; grid-template-columns:auto 1fr auto; gap:6px; align-items:center; padding:5px 6px; border:1px solid var(--border); border-radius:6px; background:#fff; text-align:left; cursor:pointer; }
+.recall-item:hover { border-color:var(--blue); background:var(--pastel-blue); }
+.recall-role { min-width:34px; padding:1px 5px; border-radius:8px; color:#fff; font-size:9px; text-align:center; }
+.recall-role.seed { background:#f97316; }
+.recall-role.expanded { background:#d97706; }
+.recall-role.evidence { background:#2563eb; }
+.recall-main { min-width:0; }
+.recall-title { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text); font-weight:600; }
+.recall-reason { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text3); font-size:9px; }
+.recall-score { color:var(--text2); font-variant-numeric:tabular-nums; font-weight:700; }
+.wg-group { display:inline-flex; align-items:center; gap:3px; margin:1px 6px 1px 0; font-size:10px; color:var(--text2); }
+.wg-dot { width:8px; height:8px; border-radius:50%; display:inline-block; flex-shrink:0; }
+
+/* 图谱放大模态框：左图右文（点击节点查看对应 markdown 文档） */
+#graphModal { position:fixed; inset:0; background:rgba(15,23,42,.5); z-index:1000; display:flex; align-items:center; justify-content:center; }
+.gm-box { background:#fff; border-radius:10px; width:min(1280px, 97vw); padding:14px 16px; box-shadow:0 10px 50px rgba(0,0,0,.3); }
+.gm-head { display:flex; justify-content:space-between; align-items:center; font-size:13px; font-weight:700; color:var(--text); margin-bottom:10px; }
+#gmClose { border:none; background:none; font-size:18px; cursor:pointer; color:var(--text3); line-height:1; padding:2px 6px; border-radius:4px; }
+#gmClose:hover { background:var(--bg); color:var(--text); }
+.gm-body { display:flex; gap:10px; }
+#gmCanvas { flex:1; min-width:0; height:min(660px, 76vh); background:#fafbfc; border:1px solid var(--border); border-radius:6px; }
+.gm-doc { width:400px; flex-shrink:0; height:min(660px, 76vh); overflow-y:auto; border:1px solid var(--border); border-radius:6px; padding:12px 16px; font-size:12px; line-height:1.75; color:var(--text); background:#fff; }
+.gm-doc h1 { font-size:16px; margin:2px 0 10px; padding-bottom:6px; border-bottom:1px solid var(--border); }
+.gm-doc h2 { font-size:14px; margin:12px 0 6px; }
+.gm-doc h3 { font-size:13px; margin:10px 0 4px; }
+.gm-doc table { border-collapse:collapse; font-size:11px; margin:6px 0; }
+.gm-doc td, .gm-doc th { border:1px solid var(--border); padding:3px 7px; }
+.gm-doc pre { background:#f6f8fa; padding:8px; border-radius:4px; overflow-x:auto; font-size:11px; }
+.gm-doc blockquote { color:var(--text2); border-left:3px solid var(--border); padding-left:8px; margin:6px 0; }
+.gm-doc-empty { color:var(--text3); font-size:12px; padding:30px 10px; text-align:center; }
+.gm-meta { background:var(--pastel-blue); border:1px solid #d6e4ff; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+.gm-meta-row { display:flex; gap:8px; font-size:11px; line-height:1.9; }
+.gm-meta-row span { color:var(--text3); min-width:64px; flex-shrink:0; }
+.gm-meta-row b { color:var(--text); font-weight:600; }
+.gm-rel { font-size:11px; color:var(--text2); margin-top:8px; padding-top:8px; border-top:1px dashed var(--border); }
+.gm-rel a { color:var(--blue); text-decoration:none; margin-right:6px; cursor:pointer; }
+.gm-rel a:hover { text-decoration:underline; }
+.gm-legend { margin-top:8px; font-size:11px; color:var(--text2); line-height:1.8; }
+
+/* Reviewed document */
+.rw-para { font-size:14px; line-height:2; color:var(--text); margin-bottom:2px; min-height:1em; }
+.rw-para.rw-empty { min-height:0.6em; }
+.rw-del { text-decoration:line-through; text-decoration-color:var(--red); text-decoration-thickness:2px; color:var(--red); background:rgba(239,68,68,0.08); padding:0 1px; border-radius:2px; cursor:pointer; }
+.rw-ins { text-decoration:underline; text-decoration-color:var(--green); color:var(--green); background:rgba(16,185,129,0.08); padding:0 1px; border-radius:2px; cursor:pointer; font-weight:500; }
+.rw-comment { background:rgba(245,158,11,0.15); border-bottom:2px dotted var(--orange); cursor:pointer; padding:0 1px; }
+.rw-cite { font-size:9px; vertical-align:super; margin-left:1px; font-weight:700; }
+.rw-para:hover .rw-del, .rw-para:hover .rw-ins, .rw-para:hover .rw-comment { filter:brightness(0.95); }
+
+/* Sidebar: suggestions */
+.sidebar-header { padding:10px 14px; background:#fff; border-bottom:1px solid var(--border); position:sticky; top:0; z-index:10; }
+.sidebar-header h3 { font-size:13px; font-weight:600; color:var(--text); margin-bottom:4px; }
+.sidebar-actions { display:flex; gap:6px; }
+.sidebar-actions button { flex:1; padding:4px; font-size:11px; border:1px solid var(--border); border-radius:4px; background:#fff; cursor:pointer; }
+.sidebar-actions button:hover { border-color:var(--blue); color:var(--blue); }
+.sidebar-actions .accept-all:hover { border-color:var(--green); color:var(--green); background:var(--pastel-green); }
+.sidebar-actions .reject-all:hover { border-color:var(--red); color:var(--red); background:var(--pastel-red); }
+
+.rw-group { margin:8px; }
+.rw-group-header { padding:4px 10px; border-left:3px solid; font-size:11px; font-weight:600; color:var(--text); display:flex; align-items:center; gap:6px; background:#fff; border-radius:0 4px 4px 0; }
+.rw-group-count { margin-left:auto; background:var(--bg); padding:0 6px; border-radius:8px; font-size:10px; color:var(--text2); }
+.rw-suggestion { background:#fff; border:1px solid var(--border); border-radius:6px; padding:8px 10px; margin-top:4px; transition:all 0.2s; }
+.rw-suggestion:hover { border-color:var(--blue); box-shadow:0 1px 4px rgba(0,0,0,0.06); }
+.rw-suggestion.accepted { opacity:0.5; border-color:var(--green); background:var(--pastel-green); }
+.rw-suggestion.rejected { opacity:0.4; border-color:var(--text3); background:var(--bg); }
+.rw-sug-header { display:flex; align-items:center; gap:4px; margin-bottom:4px; }
+.rw-sug-sev { font-size:9px; font-weight:700; color:#fff; padding:1px 5px; border-radius:8px; }
+.rw-sug-type { font-size:10px; color:var(--text2); }
+.rw-sug-rule { margin-left:auto; font-size:9px; color:var(--text3); font-family:monospace; }
+.rw-sug-body { font-size:12px; line-height:1.6; padding:4px 8px; background:var(--bg); border-radius:4px; margin-bottom:4px; }
+.rw-sug-orig { color:var(--red); text-decoration:line-through; }
+.rw-sug-arrow { color:var(--text3); margin:0 4px; font-weight:700; }
+.rw-sug-new { color:var(--green); font-weight:600; }
+.rw-sug-reason { font-size:11px; color:var(--text2); line-height:1.4; }
+.rw-sug-actions { display:flex; gap:4px; margin-top:6px; }
+.rw-sug-actions button { padding:2px 10px; font-size:10px; border:1px solid var(--border); border-radius:3px; cursor:pointer; background:#fff; }
+.rw-accept:hover { border-color:var(--green); color:var(--green); background:var(--pastel-green); }
+.rw-reject:hover { border-color:var(--red); color:var(--red); background:var(--pastel-red); }
+
+/* Welcome */
+.welcome { text-align:center; padding:60px 20px; color:var(--text2); }
+.welcome .icon { font-size:48px; margin-bottom:12px; }
+.welcome h2 { font-size:18px; color:var(--text); margin-bottom:8px; }
+.welcome p { font-size:13px; max-width:520px; margin:0 auto 16px; line-height:1.6; }
+.welcome .feats { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; max-width:680px; margin:0 auto; }
+.welcome .feat { padding:10px; border:1px solid var(--border); border-radius:8px; background:#fff; font-size:11px; }
+.welcome .feat .fi { font-size:20px; margin-bottom:4px; }
+.welcome .feat .ft { font-weight:600; color:var(--text); margin-bottom:2px; }
+.welcome .feat .fd { color:var(--text2); line-height:1.4; }
+
+/* Empty sidebar */
+.sidebar-empty { text-align:center; padding:40px 20px; color:var(--text3); font-size:12px; }
+
+/* Toast */
+.toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--text); color:#fff; padding:8px 20px; border-radius:6px; font-size:12px; z-index:1000; animation:fadeIn 0.3s; }
+@keyframes fadeIn { from{opacity:0;transform:translate(-50%,8px)} to{opacity:1;transform:translate(-50%,0)} }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <span class="logo">📋</span>
+  <h1>公文审阅 Agent</h1>
+  <span class="badge" id="badge">审阅修订模式</span>
+  <div class="stats" id="headerStats" style="display:none;">
+    <span>替换 <b id="stReplace" style="color:var(--orange)">0</b></span>
+    <span>删除 <b id="stDelete" style="color:var(--red)">0</b></span>
+    <span>插入 <b id="stInsert" style="color:var(--green)">0</b></span>
+    <span>批注 <b id="stComment" style="color:var(--purple)">0</b></span>
+  </div>
+  <div class="header-actions">
+    <button onclick="exportDoc()">导出</button>
+    <button onclick="resetAll()">重置</button>
+  </div>
+</div>
+
+<div class="knowledge-bar">
+  <label for="knowledgeSourceSelect">审核知识库</label>
+  <select id="knowledgeSourceSelect" aria-label="选择公文审核 Wiki"><option value="">正在加载...</option></select>
+  <span id="knowledgeSourceStatus" class="knowledge-status">正在发现知识源</span>
+</div>
+<div class="quick-samples">
+  <span class="label">标准:</span>
+  <button onclick="loadSample('notice')">通知</button>
+  <button onclick="loadSample('request')">请示</button>
+  <button onclick="loadSample('report')">报告</button>
+  <span class="label" style="margin-left:8px;">问题:</span>
+  <button onclick="loadSample('bad')">口语化</button>
+  <button onclick="loadSample('badpunc')">标点错误</button>
+  <button onclick="loadSample('badreq')">多头请示</button>
+  <button onclick="loadSample('badrep')">报告夹带</button>
+</div>
+
+<div class="main">
+  <div class="side-panel" id="sidePanel">
+    <div class="side-top">
+      <h3>📊 审阅进度</h3>
+      <div id="pipeNodes"></div>
+      <div class="side-stats">
+        <div>📝 建议: <strong id="statMarks">—</strong></div>
+        <div>🔴 P0: <strong id="statP0">—</strong></div>
+        <div>📖 依据覆盖: <strong id="statCite">—</strong></div>
+        <div>📂 格式档案: <strong id="statProfile">—</strong></div>
+        <div>🔗 召回页: <strong id="statRecall">—</strong></div>
+      </div>
+    </div>
+    <div class="side-graph">
+      <div class="side-graph-head"><span>🧠 知识图谱</span><span class="graph-actions"><button id="graphExpandBtn" title="展开左栏放大图谱">⛶ 放大</button></span></div>
+      <div class="recall-bar" id="recallBar"></div>
+      <div id="wikiGraph" title="点击打开大图视图"></div>
+      <div id="wikiGraphLegend"></div>
+    </div>
+  </div>
+  <div class="doc-view" id="docView">
+    <div class="welcome">
+      <div class="icon">📋</div>
+      <h2>公文审阅智能体</h2>
+      <p>对公文逐处生成修订建议（替换/删除/插入/批注），类似 Word 修订模式。点击修改建议可接受或拒绝。</p>
+      <div class="feats">
+        <div class="feat"><div class="fi">✏️</div><div class="ft">替换</div><div class="fd">忌用词→规范词、半角→全角、序号标点</div></div>
+        <div class="feat"><div class="fi">🗑️</div><div class="ft">删除</div><div class="fd">多余空格、多余标点</div></div>
+        <div class="feat"><div class="fi">➕</div><div class="ft">插入</div><div class="fd">缺少的规范结语</div></div>
+        <div class="feat"><div class="fi">💬</div><div class="ft">批注</div><div class="fd">夹带请示、多头主送等警示</div></div>
+      </div>
+      <div style="margin-top:16px;font-size:11px;color:var(--text3);">点击"口语化""标点错误"等样例快速体验 →</div>
+    </div>
+  </div>
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-empty">审阅建议将显示在这里</div>
+  </div>
+</div>
+
+<div class="input-bar">
+  <textarea id="inputText" placeholder="粘贴公文文本，或点击上方样例快速加载..."></textarea>
+  <div style="display:flex;flex-direction:column;gap:4px;">
+    <button id="reviewBtn" onclick="startReview()">开始审阅</button>
+    <label class="upload-btn" style="padding:6px 16px;background:var(--green);color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;text-align:center;font-weight:500;display:block;">
+      📁 上传文件
+      <input type="file" id="fileInput" accept=".docx,.pdf,.txt" style="display:none;" onchange="handleFileUpload(event)">
+    </label>
+  </div>
+</div>
+
+<script src="https://unpkg.com/@antv/g6@5/dist/g6.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+var SAMPLES = {
+  notice: '关于召开2026年第三季度经营分析会议的通知\n\n各部门：\n为全面总结第三季度经营工作，研究部署第四季度重点任务，现就召开经营分析会议有关事项通知如下。\n一、会议时间\n2026年10月15日上午9时\n二、会议地点\n总行三楼会议室\n三、参会人员\n各部门主要负责人\n四、会议要求\n（一）请各部门提前准备汇报材料。\n（二）请参会人员准时出席。\n\n特此通知\n\nXX银行办公室\n2026年10月8日',
+
+  request: '关于申请追加科技研发预算的请示\n\n总行：\n根据我行2026年度科技研发项目进展情况，部分重点项目需追加预算。具体原因如下。\n一、项目背景\n核心系统升级改造项目于2026年3月启动，原预算2000万元。因技术架构调整，需追加预算500万元。\n二、追加预算必要性\n核心系统升级是2026年度重点工作，须按期完成。\n\n妥否，请批示\n\n科技部\n2026年10月8日',
+
+  report: '关于2026年第三季度工作情况的报告\n\n总行：\n2026年第三季度，我部认真贯彻落实总行工作部署，扎实推进各项业务，现将有关情况报告如下。\n一、主要工作完成情况\n核心系统升级改造项目按计划推进。\n二、存在问题\n部分项目进度滞后。\n三、下步打算\n加快推进核心系统升级改造。\n\n特此报告\n\n科技部\n2026年10月8日',
+
+  bad: '关于搞经济工作的会议通知\n\n各位领导：\n为贯彻落实上头精神，我们觉得应该召开一个会议，大概讨论一下经济工作。这个会议搞的好的话，能够取得巨大成效。\n会议时间：大概10月份某天\n地点：待定\n参会人员：所有相关人员\n\n请各位务必参加，缺席者后果自负\n\n办公室\n2026年',
+
+  badpunc: '关于召开2026年第四季度工作会议的通知\n\n各部门:\n为全面总结第四季度工作,研究部署下一阶段重点任务.现就有关事项通知如下.\n\n一.会议时间\n2026年11月15日上午9时\n\n二.会议地点\n总行三楼会议室\n\n三.参会人员\n1、各部门主要负责人\n2、各部门分管副职\n\n四.会议要求\n（一）.请各部门提前准备汇报材料.\n（二）.请参会人员准时出席.\n\n特此通知.\n\n办公室\n2026-11-8',
+
+  badreq: '关于申请追加科技研发预算和购置办公设备的请示\n\n总行、财政部：\n\n根据我行2026年度科技研发项目进展情况，部分重点项目需追加预算。同时因办公设备老化，需购置新设备。现请示如下。\n\n一、申请追加科技研发预算500万元\n用于核心系统升级改造项目，具体为云计算基础设施采购和数据库授权。\n\n二、申请购置办公设备200万元\n用于更新部门办公电脑、打印机、复印机等设备。\n\n三、请尽快批复\n因项目时间紧迫，请尽快予以批复。\n\n以上请示，请予批复\n\n科技部\n2026年10月8日',
+
+  badrep: '关于2026年第三季度工作情况的报告\n\n总行：\n\n2026年第三季度，我部认真贯彻落实总行工作部署，扎实推进各项业务，现将有关情况报告如下。\n\n一、主要工作完成情况\n核心系统升级改造项目按计划推进，已完成总体架构设计。\n\n二、存在问题\n部分项目进度滞后。\n\n三、下步打算\n加快推进核心系统升级改造。\n\n四、请示事项\n因项目需要，请总行追加预算500万元，用于核心系统升级改造项目。\n\n特此报告\n\n科技部\n二〇二六年十月八日'
+};
+
+var currentMarks = [];
+var currentText = '';
+var markStates = {}; // markId → 'pending'|'accepted'|'rejected'
+var selectedWikiId = '';
+var knowledgeSources = [];
+
+function getSelectedKnowledgeSource() {
+  return knowledgeSources.filter(function(source) { return source.wiki_id === selectedWikiId; })[0] || null;
+}
+
+function renderKnowledgeSourceStatus(source) {
+  var status = document.getElementById('knowledgeSourceStatus');
+  if (!status) return;
+  status.className = 'knowledge-status';
+  if (!source) {
+    status.classList.add('error');
+    status.textContent = '未找到可用知识库';
+    return;
+  }
+  if (source.mode === 'draft_preview') status.classList.add('preview');
+  status.textContent = source.mode === 'draft_preview'
+    ? '草稿预览 · 审核结果非正式合规结论'
+    : (source.release_version ? '已发布 · ' + source.release_version : '已加载 · ' + source.mode);
+  status.title = source.message || '';
+}
+
+async function initKnowledgeSources() {
+  var select = document.getElementById('knowledgeSourceSelect');
+  try {
+    var response = await fetch('/api/knowledge/doc-review-agent/knowledge-sources');
+    var data = await response.json();
+    if (!response.ok) throw new Error(data.error || '知识源加载失败');
+    knowledgeSources = data.sources || [];
+    selectedWikiId = data.default_wiki_id || (knowledgeSources[0] && knowledgeSources[0].wiki_id) || '';
+    select.innerHTML = knowledgeSources.map(function(source) {
+      var state = source.mode === 'draft_preview' ? ' [草稿预览]' : (source.release_version ? ' [' + source.release_version + ']' : '');
+      return '<option value="' + escapeHtml(source.wiki_id) + '"' + (source.wiki_id === selectedWikiId ? ' selected' : '') + '>' +
+        escapeHtml(source.name + state) + '</option>';
+    }).join('');
+    select.disabled = !knowledgeSources.length;
+    renderKnowledgeSourceStatus(getSelectedKnowledgeSource());
+    initWikiGraph();
+  } catch (error) {
+    select.innerHTML = '<option value="">知识源不可用</option>';
+    select.disabled = true;
+    renderKnowledgeSourceStatus(null);
+    var graph = document.getElementById('wikiGraph');
+    if (graph) graph.innerHTML = '<div style="padding:90px 0;text-align:center;font-size:10px;color:var(--red);">知识源加载失败</div>';
+  }
+}
+
+document.getElementById('knowledgeSourceSelect').addEventListener('change', function(event) {
+  selectedWikiId = event.target.value;
+  renderKnowledgeSourceStatus(getSelectedKnowledgeSource());
+  clearRecallState();
+  closeGraphModal();
+  initWikiGraph();
+});
+
+function loadSample(type) {
+  document.getElementById('inputText').value = SAMPLES[type] || '';
+  document.getElementById('inputText').focus();
+}
+
+async function handleFileUpload(event) {
+  var file = event.target.files[0];
+  if (!file) return;
+  if (!selectedWikiId) { showToast('审核知识库尚未就绪'); event.target.value = ''; return; }
+
+  var allowedExts = ['.docx', '.pdf', '.txt'];
+  var ext = '.' + file.name.split('.').pop().toLowerCase();
+  if (allowedExts.indexOf(ext) < 0) {
+    showToast('仅支持 .docx / .pdf / .txt 文件');
+    event.target.value = '';
+    return;
+  }
+
+  setPipeMode('upload');
+  clearRecallState();
+  markPipe('upload', 'active', '上传文件：' + file.name);
+
+  var formData = new FormData();
+  formData.append('file', file);
+  formData.append('wikiId', selectedWikiId);
+
+  try {
+    var gotTerminal = await streamRequest('/api/knowledge/doc-review-agent/upload-review?stream=1', {
+      method: 'POST',
+      body: formData,
+    }, handleDocReviewSSE);
+    if (!gotTerminal) throw new Error('连接中断：未收到审阅结果');
+  } catch (e) {
+    markPipeActiveErr();
+    document.getElementById('docView').innerHTML = '<div style="color:var(--red);padding:40px;text-align:center;">文件审阅失败：' + escapeHtml(e.message) + '</div>';
+  } finally {
+    event.target.value = '';
+  }
+}
+
+function resetAll() {
+  document.getElementById('inputText').value = '';
+  currentMarks = [];
+  currentText = '';
+  markStates = {};
+  document.getElementById('headerStats').style.display = 'none';
+  document.getElementById('docView').innerHTML = '<div class="welcome"><div class="icon">📋</div><h2>已重置</h2><p>粘贴新公文继续审阅</p></div>';
+  document.getElementById('sidebar').innerHTML = '<div class="sidebar-empty">审阅建议将显示在这里</div>';
+  setPipeMode('text');
+  resetPipeStats();
+  clearRecallState();
+}
+
+async function startReview() {
+  var text = document.getElementById('inputText').value.trim();
+  if (!text) { showToast('请粘贴公文文本'); return; }
+  if (!selectedWikiId) { showToast('审核知识库尚未就绪'); return; }
+
+  var btn = document.getElementById('reviewBtn');
+  btn.disabled = true; btn.textContent = '审阅中...';
+  currentText = text;
+  markStates = {};
+
+  setPipeMode('text');
+  clearRecallState();
+
+  try {
+    var gotTerminal = await streamRequest('/api/knowledge/doc-review-agent/review-marks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: text, stream: true, wikiId: selectedWikiId }),
+    }, handleDocReviewSSE);
+    if (!gotTerminal) throw new Error('连接中断：未收到审阅结果');
+  } catch (e) {
+    markPipeActiveErr();
+    document.getElementById('docView').innerHTML = '<div style="color:var(--red);padding:40px;text-align:center;">审阅失败：' + escapeHtml(e.message) + '</div>';
+  } finally {
+    btn.disabled = false; btn.textContent = '开始审阅';
+  }
+}
+
+// ═══════════════════════════════════════════════
+// 左侧进度管道面板 + SSE 流式消费
+// ═══════════════════════════════════════════════
+
+var PIPE_MODES = {
+  text: [
+    { key: 'knowledge', label: '01 知识源加载', detail: '绑定所选公文审核 Wiki 与发布状态' },
+    { key: 'identify', label: '02 文种识别', detail: '从标题与结语识别公文文种' },
+    { key: 'graph', label: '03 图谱推理', detail: '文种页为种子 · 邻域展开审核规则集' },
+    { key: 'rules', label: '04 规则审阅', detail: '标点 / 忌用词 / 序号 / 日期 / 文种规范' },
+    { key: 'recall', label: '05 知识装配', detail: '按边权装配规则页 · 预算 ≤6500 字符' },
+    { key: 'llm', label: '06 LLM 语义审阅', detail: '风格 / 逻辑 / 表述 / 数据支撑' },
+    { key: 'render', label: '07 渲染汇总', detail: '生成修订视图与建议清单' },
+  ],
+  upload: [
+    { key: 'knowledge', label: '01 知识源加载', detail: '绑定所选公文审核 Wiki 与发布状态' },
+    { key: 'upload', label: '02 解析文件', detail: '解析 docx / pdf / txt' },
+    { key: 'identify', label: '03 文种识别', detail: '从标题与结语识别公文文种' },
+    { key: 'format', label: '04 格式检查', detail: '页边距 / 字体 / 字号 / 行距' },
+    { key: 'graph', label: '05 图谱推理', detail: '文种页为种子 · 邻域展开审核规则集' },
+    { key: 'rules', label: '06 规则审阅', detail: '标点 / 忌用词 / 文种规范' },
+    { key: 'recall', label: '07 知识装配', detail: '按边权装配规则页 · 预算 ≤6500 字符' },
+    { key: 'llm', label: '08 LLM 语义审阅', detail: '风格 / 逻辑 / 表述 / 数据支撑' },
+    { key: 'render', label: '09 渲染汇总', detail: '生成修订视图与建议清单' },
+  ],
+};
+var phaseDone = {};
+var pipeOrder = [];
+var currentActiveStep = null;
+
+function setPipeMode(mode) {
+  var steps = PIPE_MODES[mode] || PIPE_MODES.text;
+  pipeOrder = steps.map(function(s) { return s.key; });
+  phaseDone = {};
+  currentActiveStep = null;
+  var html = '<div class="pipe-node phase"><div class="node-label">等待审阅</div>' +
+    '<div class="node-detail">粘贴公文或上传文件后点击"开始审阅"</div></div>';
+  steps.forEach(function(s) {
+    var isLlm = s.key === 'llm';
+    var drill = '';
+    if (isLlm) {
+      // LLM 节点下钻：调用形态 / 输入预检 / L0 知识导航 / L1 精读 / 结果
+      drill = '<div class="pipe-drill" data-drill="llm">' +
+        '<div class="drill-row"><b>调用形态：</b>确定性两轮调用（非 agent loop）。策略顺序：规则引擎 → 图谱推理 → LLM 语义——确定性问题由引擎检查，语义问题交 LLM</div>' +
+        '<div class="drill-row"><b>输入预检：</b><span data-drill-precheck>等待审阅…</span></div>' +
+        '<div class="drill-row"><b>第一轮 · 知识导航（L0）：</b><span data-drill-l0>…</span></div>' +
+        '<div class="drill-row"><b>第二轮 · 精读（L1）：</b><span data-drill-l1>仅当 LLM 声明 needs_pages 时执行</span></div>' +
+        '<div class="drill-row"><b>结果：</b><span data-drill-result>…</span></div>' +
+        '</div>';
+    }
+    html += '<div class="pipe-node' + (isLlm ? ' clickable' : '') + '" data-pipe="' + s.key + '"' +
+      (isLlm ? ' onclick="toggleLLMDrill(this)"' : '') + '>' +
+      '<div class="node-label">' + s.label + (isLlm ? ' <span class="drill-arrow">▸</span>' : '') + '</div>' +
+      '<div class="node-detail">' + s.detail + '</div>' + drill + '</div>';
+  });
+  document.getElementById('pipeNodes').innerHTML = html;
+}
+
+// 下钻展开/收起 LLM 审阅节点内部结构
+function toggleLLMDrill(nodeEl) {
+  var drill = nodeEl.querySelector('.pipe-drill');
+  if (!drill) return;
+  var open = drill.classList.toggle('open');
+  nodeEl.classList.toggle('drilled', open);
+}
+
+// 用 llm_meta（轮次/截断/精读页）填充下钻运行时信息
+function updateLLMDrill(meta) {
+  var drill = document.querySelector('#pipeNodes .pipe-drill[data-drill="llm"]');
+  if (!drill || !meta) return;
+  var pre = drill.querySelector('[data-drill-precheck]');
+  var l0 = drill.querySelector('[data-drill-l0]');
+  var l1 = drill.querySelector('[data-drill-l1]');
+  var res = drill.querySelector('[data-drill-result]');
+  if (pre) {
+    if (meta.truncated) {
+      pre.textContent = '文本 ' + meta.truncated.originalLen + ' 字符超限 → 保留首 ' + meta.truncated.keptHead +
+        ' + 尾 ' + meta.truncated.keptTail + '（中段省略 ' + meta.truncated.omitted + '，结语/落款保留）';
+    } else {
+      pre.textContent = '文本未超限（≤4000 字符直接全量注入）';
+    }
+  }
+  if (l0) l0.textContent = '注入按文种召回 + 图谱推理的规则段与知识目录，一次调用并行审 5 维度（风格 / 表述 / 逻辑 / 用词 / 数据）';
+  if (l1) l1.textContent = (meta.needs && meta.needs.length)
+    ? '已触发：精读 ' + meta.needs.length + ' 页（' + meta.needs.join('、') + '）后重新审阅'
+    : '未触发（LLM 判定召回知识已足够）';
+  if (res) res.textContent = '共 ' + meta.rounds + ' 轮调用' + ((meta.needs && meta.needs.length) ? '，第二轮补充精读后输出最终结果' : '，第一轮直接输出最终结果');
+}
+
+function markPipe(step, state, detail) {
+  var nodes = document.querySelectorAll('#pipeNodes .pipe-node[data-pipe]');
+  nodes.forEach(function(n) {
+    if (n.getAttribute('data-pipe') !== step) return;
+    var isLlm = step === 'llm';
+    var wasDrilled = n.classList.contains('drilled');
+    n.className = 'pipe-node' + (isLlm ? ' clickable' : '') + (wasDrilled ? ' drilled' : '');
+    if (state === 'active') n.classList.add('active');
+    else if (state === 'done') n.classList.add('done');
+    else if (state === 'err') n.classList.add('err');
+    else if (state === 'progress') n.classList.add('active');
+    if (detail) {
+      var d = n.querySelector('.node-detail');
+      if (d) d.textContent = detail;
+    }
+  });
+}
+
+function setPhaseActive(step) {
+  currentActiveStep = step;
+  var idx = pipeOrder.indexOf(step);
+  pipeOrder.forEach(function(key, i) {
+    if (i < idx) { phaseDone[key] = true; markPipe(key, 'done'); }
+    else if (i === idx) { markPipe(key, 'active'); }
+  });
+}
+
+function setPhaseDone(step) {
+  phaseDone[step] = true;
+  if (currentActiveStep === step) currentActiveStep = null;
+  markPipe(step, 'done');
+}
+
+function markPipeActiveErr() {
+  if (currentActiveStep) markPipe(currentActiveStep, 'err');
+  var phaseNode = document.querySelector('#pipeNodes .pipe-node.phase');
+  if (phaseNode) {
+    phaseNode.querySelector('.node-label').textContent = '审阅失败';
+  }
+}
+
+function resetPipeStats() {
+  document.getElementById('statMarks').textContent = '—';
+  document.getElementById('statP0').textContent = '—';
+  document.getElementById('statCite').textContent = '—';
+  document.getElementById('statProfile').textContent = '—';
+  document.getElementById('statRecall').textContent = '—';
+}
+
+// 档案名 → 可读展示名
+var PROFILE_NAMES_DISP = {
+  gov: 'gov · 党政 GB/T',
+  enterprise: 'enterprise · 企业内文',
+  regulation: 'regulation · 制度',
+  briefing_speech: 'briefing_speech · 简报讲话',
+};
+
+// SSE 消费：fetch POST + ReadableStream 解析（deep-research 范式）
+async function streamRequest(url, opts, onEvent) {
+  var resp = await fetch(url, opts);
+  if (!resp.ok) {
+    var e = null;
+    try { e = await resp.json(); } catch (err) {}
+    throw new Error((e && e.error) || ('HTTP ' + resp.status));
+  }
+  var reader = resp.body.getReader();
+  var decoder = new TextDecoder();
+  var buf = '';
+  var gotTerminal = false;
+  var ev = null, dl = []; // 跨 chunk 保持状态：chunk 边界落在 event: 行与 data: 行之间时事件名不能丢
+  while (true) {
+    var r = await reader.read();
+    if (r.done) break;
+    buf += decoder.decode(r.value, { stream: true });
+    var lines = buf.split('\n');
+    buf = lines.pop() || '';
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i];
+      if (line.indexOf('event: ') === 0) ev = line.slice(7).trim();
+      else if (line.indexOf('data: ') === 0) dl.push(line.slice(6));
+      else if (!line.trim() && ev && dl.length) {
+        try {
+          if (onEvent(ev, JSON.parse(dl.join('\n')))) gotTerminal = true;
+        } catch (err) { console.warn('SSE parse error:', err); }
+        ev = null; dl = [];
+      }
+    }
+  }
+  return gotTerminal;
+}
+
+function handleDocReviewSSE(event, data) {
+  switch (event) {
+    case 'phase':
+      if (data.state === 'active') setPhaseActive(data.phase);
+      else if (data.state === 'done') setPhaseDone(data.phase);
+      else if (data.state === 'progress') markPipe(data.phase, 'progress', data.detail || '');
+      else if (data.state === 'error') markPipe(data.phase, 'err', data.detail || '');
+      return false;
+    case 'recall':
+      applyRecallPayload(data.pages || []);
+      document.getElementById('statRecall').textContent = (data.pages || []).length + ' 页';
+      return false;
+    case 'result':
+      renderReviewResult(data);
+      return true;
+    case 'error':
+      markPipeActiveErr();
+      showToast('审阅失败：' + (data.error || '未知错误'));
+      document.getElementById('docView').innerHTML = '<div style="color:var(--red);padding:40px;text-align:center;">审阅失败：' + escapeHtml(data.error || '未知错误') + '</div>';
+      return true;
+    case 'hb':
+    case 'done':
+      return false;
+  }
+  return false;
+}
+
+// 审阅结果渲染（文本审阅与上传审阅共用）
+function renderReviewResult(data) {
+  if (data.text) {
+    currentText = data.text;
+    document.getElementById('inputText').value = data.text;
+  }
+  currentMarks = data.marks || [];
+  markStates = {};
+  currentMarks.forEach(function(m) { markStates[m.id] = 'pending'; });
+
+  // 渲染文档
+  var docView = document.getElementById('docView');
+  docView.innerHTML = '<div style="max-width:780px;margin:0 auto;">' + (data.documentHtml || '') + '</div>';
+
+  if (data.knowledge_source) {
+    renderKnowledgeSourceStatus(data.knowledge_source);
+    if (data.knowledge_source.mode === 'draft_preview') {
+      var previewDiv = document.createElement('div');
+      previewDiv.style.cssText = 'max-width:780px;margin:0 auto 14px;padding:10px 14px;background:var(--pastel-orange);border-left:3px solid var(--orange);border-radius:0 6px 6px 0;font-size:11px;color:#92400e;';
+      previewDiv.textContent = '知识状态：' + (data.knowledge_source.message || '当前使用草稿预览知识，本次结果仅供辅助复核，不构成正式合规结论。');
+      docView.insertBefore(previewDiv, docView.firstChild);
+    }
+  }
+
+  // 上传路径：格式摘要
+  if (data.formatSummary) {
+    var summaryDiv = document.createElement('div');
+    summaryDiv.style.cssText = 'max-width:780px;margin:0 auto 20px;padding:12px 16px;background:var(--pastel-blue);border-left:3px solid var(--blue);border-radius:0 6px 6px 0;font-size:12px;color:var(--text);white-space:pre-wrap;font-family:monospace;';
+    summaryDiv.innerHTML = '<strong>📄 格式信息：' + escapeHtml(data.fileName || '') + '</strong>\n\n' + escapeHtml(data.formatSummary);
+    docView.insertBefore(summaryDiv, docView.firstChild);
+  }
+
+  // LLM 总评
+  if (data.llmSummary && data.llmSummary.overall_comment) {
+    showLLMSummary(data.llmSummary);
+  }
+
+  // 渲染侧边栏 + 统计
+  renderSidebar();
+  updateStats(data.stats);
+
+  // LLM 节点下钻信息（轮次/截断/精读页）
+  updateLLMDrill(data.llm_meta || null);
+
+  // 格式档案 + 召回页数（左栏统计区）
+  var profileName = data.format_profile || data.formatProfile || '';
+  document.getElementById('statProfile').textContent = profileName ? (PROFILE_NAMES_DISP[profileName] || profileName) : '—';
+  document.getElementById('statRecall').textContent = (data.recall_pages || []).length + ' 页';
+
+  // 知识图谱：点亮本次任务召回的 wiki 文档节点
+  highlightRecallPages(data.recall_pages || []);
+
+  // 完成提示
+  if (data.stats && data.stats.llm_enabled) {
+    if (data.stats.llm_error) {
+      showToast('规则审阅完成（' + data.stats.rule_marks + ' 条），LLM 审阅失败：' + data.stats.llm_error);
+    } else {
+      showToast('审阅完成：规则 ' + data.stats.rule_marks + ' 条 + LLM 语义 ' + data.stats.llm_marks + ' 条');
+    }
+  } else if (data.stats && data.stats.format_marks !== undefined) {
+    showToast('文件审阅完成：' + data.stats.total + ' 处问题（格式 ' + data.stats.format_marks + ' + 文本 ' + data.stats.text_marks + '）');
+  } else {
+    showToast('规则审阅完成，发现 ' + currentMarks.length + ' 处建议');
+  }
+
+  // 进度面板收尾：phase 节点转"审阅完成"
+  var phaseNode = document.querySelector('#pipeNodes .pipe-node.phase');
+  if (phaseNode) {
+    phaseNode.className = 'pipe-node phase done';
+    phaseNode.querySelector('.node-label').textContent = '审阅完成';
+    phaseNode.querySelector('.node-detail').textContent = '共 ' + (data.stats ? data.stats.total : currentMarks.length) + ' 处建议，可在右侧逐条处理';
+  }
+}
+
+function showLLMSummary(summary) {
+  var docView = document.getElementById('docView');
+  var summaryDiv = document.createElement('div');
+  summaryDiv.style.cssText = 'max-width:780px;margin:0 auto 20px;padding:12px 16px;background:var(--pastel-purple);border-left:3px solid var(--purple);border-radius:0 6px 6px 0;font-size:12px;color:var(--text);';
+  var scoreText = summary.style_score !== undefined ? '（风格评分：' + summary.style_score + '/100）' : '';
+  summaryDiv.innerHTML = '<strong>🤖 LLM 总评</strong>' + scoreText + '<br>' + escapeHtml(summary.overall_comment || '');
+  docView.insertBefore(summaryDiv, docView.firstChild);
+}
+
+function renderSidebar() {
+  var sidebar = document.getElementById('sidebar');
+
+  if (currentMarks.length === 0) {
+    sidebar.innerHTML = '<div class="sidebar-empty">未发现修改建议</div>';
+    return;
+  }
+
+  // 按类别分组
+  var groups = {};
+  currentMarks.forEach(function(m) {
+    var key = m.category || '其他';
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(m);
+  });
+
+  var colors = { '语言规范': 'var(--orange)', '格式规范': 'var(--blue)', '文种规范': 'var(--purple)', '行文规范': 'var(--red)' };
+
+  var html = '<div class="sidebar-header">' +
+    '<h3>修改建议（' + currentMarks.length + '）</h3>' +
+    '<div class="sidebar-actions">' +
+    '<button class="accept-all" onclick="acceptAll()">全部接受</button>' +
+    '<button class="reject-all" onclick="rejectAll()">全部拒绝</button>' +
+    '</div></div>';
+
+  Object.keys(groups).forEach(function(cat) {
+    var items = groups[cat];
+    var color = colors[cat] || 'var(--text3)';
+    html += '<div class="rw-group">';
+    html += '<div class="rw-group-header" style="border-left-color:' + color + '">';
+    html += '<span>' + escapeHtml(cat) + '</span>';
+    html += '<span class="rw-group-count">' + items.length + '</span>';
+    html += '</div>';
+
+    items.forEach(function(m) {
+      var typeLabel = { replace: '替换', delete: '删除', insert: '插入', comment: '批注' }[m.type] || m.type;
+      var sevColor = m.severity === 'P0' ? 'var(--red)' : (m.severity === 'P1' ? 'var(--orange)' : 'var(--blue)');
+      var stateClass = markStates[m.id] === 'accepted' ? 'accepted' : (markStates[m.id] === 'rejected' ? 'rejected' : '');
+
+      html += '<div class="rw-suggestion ' + stateClass + '" id="sug-' + m.id + '">';
+      html += '<div class="rw-sug-header">';
+      html += '<span class="rw-sug-sev" style="background:' + sevColor + '">' + m.severity + '</span>';
+      html += '<span class="rw-sug-type">' + typeLabel + '</span>';
+      html += '<span class="rw-sug-rule">' + escapeHtml(m.rule_id) + '</span>';
+      html += '</div>';
+      html += '<div class="rw-sug-body">';
+      if (m.original) html += '<span class="rw-sug-orig">' + escapeHtml(m.original) + '</span>';
+      if (m.type === 'replace') {
+        html += '<span class="rw-sug-arrow">→</span>';
+        html += '<span class="rw-sug-new">' + escapeHtml(m.suggested) + '</span>';
+      } else if (m.type === 'insert') {
+        html += '<span class="rw-sug-arrow">+</span>';
+        html += '<span class="rw-sug-new">' + escapeHtml(m.suggested) + '</span>';
+      } else if (m.type === 'delete') {
+        html += '<span class="rw-sug-arrow">−</span>';
+      }
+      html += '</div>';
+      html += '<div class="rw-sug-reason">' + escapeHtml(m.reason) + '</div>';
+      if (m.citation && m.citation.source) {
+        html += '<div class="rw-sug-cite">📖 ' + escapeHtml(m.citation.source) +
+          (m.citation.clause && m.citation.clause !== '—' ? ' ' + escapeHtml(m.citation.clause) : '') + '</div>';
+      }
+      html += '<div class="rw-sug-actions">';
+      html += '<button class="rw-accept" onclick="acceptMark(\'' + m.id + '\')" ' + (stateClass ? 'disabled' : '') + '>接受</button>';
+      html += '<button class="rw-reject" onclick="rejectMark(\'' + m.id + '\')" ' + (stateClass ? 'disabled' : '') + '>拒绝</button>';
+      html += '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+  });
+
+  sidebar.innerHTML = html;
+}
+
+function acceptMark(mid) {
+  markStates[mid] = 'accepted';
+  updateSuggestionUI(mid);
+  updatePendingCount();
+}
+
+function rejectMark(mid) {
+  markStates[mid] = 'rejected';
+  updateSuggestionUI(mid);
+  updatePendingCount();
+}
+
+function acceptAll() {
+  currentMarks.forEach(function(m) { markStates[m.id] = 'accepted'; });
+  renderSidebar();
+  showToast('已接受全部修改');
+}
+
+function rejectAll() {
+  currentMarks.forEach(function(m) { markStates[m.id] = 'rejected'; });
+  renderSidebar();
+  showToast('已拒绝全部修改');
+}
+
+function updateSuggestionUI(mid) {
+  var el = document.getElementById('sug-' + mid);
+  if (!el) return;
+  el.classList.remove('accepted', 'rejected');
+  if (markStates[mid] === 'accepted') el.classList.add('accepted');
+  else if (markStates[mid] === 'rejected') el.classList.add('rejected');
+  // 禁用按钮
+  el.querySelectorAll('.rw-sug-actions button').forEach(function(b) { b.disabled = true; });
+}
+
+function updatePendingCount() {
+  var pending = currentMarks.filter(function(m) { return markStates[m.id] === 'pending'; }).length;
+  if (pending === 0) {
+    // 全部处理完，可以导出
+    showToast('全部处理完毕，可点击"导出"获取最终文稿');
+  }
+}
+
+function updateStats(stats) {
+  document.getElementById('headerStats').style.display = 'flex';
+  document.getElementById('stReplace').textContent = stats.replace || 0;
+  document.getElementById('stDelete').textContent = stats.delete || 0;
+  document.getElementById('stInsert').textContent = stats.insert || 0;
+  document.getElementById('stComment').textContent = stats.comment || 0;
+  // 显示审阅模式状态
+  if (stats.llm_enabled && !stats.llm_error) {
+    document.getElementById('badge').textContent = '规则' + (stats.rule_marks||0) + '+LLM' + (stats.llm_marks||0);
+  } else if (stats.format_marks !== undefined) {
+    document.getElementById('badge').textContent = '格式' + (stats.format_marks||0) + '+文本' + (stats.text_marks||0);
+  }
+  // 左侧面板统计
+  document.getElementById('statMarks').textContent = stats.total || 0;
+  document.getElementById('statP0').textContent = stats.p0 || 0;
+  var cited = (currentMarks || []).filter(function(m) { return m.citation && m.citation.source; }).length;
+  document.getElementById('statCite').textContent = cited + '/' + (currentMarks.length || 0);
+}
+
+async function exportDoc() {
+  var acceptedIds = currentMarks.filter(function(m) { return markStates[m.id] === 'accepted'; }).map(function(m) { return m.id; });
+  if (acceptedIds.length === 0 && !currentText) { showToast('请先审阅公文'); return; }
+
+  try {
+    var resp = await fetch('/api/knowledge/doc-review-agent/apply-marks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: currentText, marks: currentMarks, acceptedIds: acceptedIds }),
+    });
+    var data = await resp.json();
+    if (data.success) {
+      // 下载为 txt
+      var blob = new Blob([data.finalText], { type: 'text/plain;charset=utf-8' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = '公文审核结果_' + Date.now() + '.txt';
+      a.click();
+      showToast('已导出（接受 ' + acceptedIds.length + ' 处修改）');
+    }
+  } catch (e) {
+    showToast('导出失败：' + e.message);
+  }
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, function(c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+
+function showToast(msg) {
+  var t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(function() { t.remove(); }, 2500);
+}
+
+// ═══════════════════════════════════════════════
+// wiki 知识图谱（G6 v5，与 Knowledge Studio 同款组件）
+// 节点 = wiki/doc-rules 页面；任务完成后召回页节点点亮
+// 布局：d3-force + collide 硬性防重叠；小面板 + 点击放大模态框
+// ═══════════════════════════════════════════════
+var wikiGraphInstance = null;
+var modalGraphInstance = null;
+var wikiGraphData = null;
+var recalledNodes = {};
+var recalledEdgeIds = {};
+var recalledPages = [];
+var recallSignature = '';
+var WIKI_GROUP_COLORS = { '_common': '#1890ff', 'doc-types': '#52c41a', 'style': '#722ed1', 'lexicon': '#fa8c16', 'root': '#8c8c8c' };
+var WIKI_GROUP_NAMES = { '_common': '通用规则', 'doc-types': '文种规则', 'style': '语言风格', 'lexicon': '词典', 'root': '导航页' };
+
+function registerWikiGroups(data) {
+  var palette = ['#13c2c2', '#eb2f96', '#2f54eb', '#a0d911', '#fa541c', '#9254de', '#08979c'];
+  var cursor = 0;
+  (data.nodes || []).forEach(function(node) {
+    var group = node.group || 'root';
+    if (!WIKI_GROUP_COLORS[group]) WIKI_GROUP_COLORS[group] = palette[(cursor++) % palette.length];
+    if (!WIKI_GROUP_NAMES[group]) WIKI_GROUP_NAMES[group] = group;
+  });
+}
+
+function initWikiGraph() {
+  var el = document.getElementById('wikiGraph');
+  if (!el) return;
+  if (!selectedWikiId) {
+    el.innerHTML = '<div style="padding:90px 0;text-align:center;font-size:10px;color:var(--text3);">等待选择审核知识库</div>';
+    return;
+  }
+  if (wikiGraphInstance) { wikiGraphInstance.destroy(); wikiGraphInstance = null; }
+  wikiGraphData = null;
+  el.innerHTML = '<div style="padding:90px 0;text-align:center;font-size:10px;color:var(--text3);">加载知识图谱...</div>';
+  fetch('/api/knowledge/doc-review-agent/wiki-graph?wikiId=' + encodeURIComponent(selectedWikiId)).then(function(r) {
+    if (!r.ok) return r.json().then(function(error) { throw new Error(error.error || '图谱加载失败'); });
+    return r.json();
+  }).then(function(data) {
+    if (!data.nodes || !data.nodes.length) throw new Error('empty');
+    wikiGraphData = data;
+    registerWikiGroups(data);
+    renderKnowledgeSourceStatus(data.knowledge_source || getSelectedKnowledgeSource());
+    renderWikiGraph();
+  }).catch(function(error) {
+    el.innerHTML = '<div style="padding:90px 0;text-align:center;font-size:10px;color:var(--text3);">图谱加载失败：' + escapeHtml(error.message) + '</div>';
+  });
+}
+
+function recallEdgeKey(source, target) {
+  return [String(source || ''), String(target || '')].sort().join('||');
+}
+
+// 构建图数据（召回节点按角色分层；labelLen 控制标签截断长度）
+// 边按四信号权重分层：强关联粗线 / 弱关联细线 / 隐式边（同源/共同邻居，无直接引用）虚线
+// opts.hideImplicit：小图不画隐式边（86 条虚线在小画布上太密），大图视图保留
+// 召回发生后：种子/扩展/依据节点分色，只有真实 path 边突出，其余节点与边降噪
+function buildWikiGraphData(labelLen, opts) {
+  opts = opts || {};
+  var wdeg = {};
+  (wikiGraphData.edges || []).forEach(function(e) {
+    var w = e.weight || 1;
+    wdeg[e.source] = (wdeg[e.source] || 0) + w;
+    wdeg[e.target] = (wdeg[e.target] || 0) + w;
+  });
+  var recallActive = recalledPages.length > 0;
+  var nodes = wikiGraphData.nodes.map(function(n) {
+    var recallPage = recalledNodes[n.id] || recalledNodes[n.id.replace(/\.md$/, '')];
+    var hit = !!recallPage;
+    var role = recallPage && recallPage.role || '';
+    var wd = wdeg[n.id] || 0;
+    var style;
+    var label;
+    if (hit) {
+      label = String(n.title || n.id).slice(0, labelLen + 10);
+      if (role === 'seed') {
+        style = { fill: '#f97316', size: 24 + Math.min(14, wd), stroke: '#9a3412', lineWidth: 4, shadowColor: 'rgba(249,115,22,.55)', shadowBlur: 18, labelFill: '#9a3412', labelFontWeight: 700 };
+      } else if (role === 'expanded') {
+        style = { fill: '#fbbf24', size: 20 + Math.min(12, wd), stroke: '#b45309', lineWidth: 3, shadowColor: 'rgba(251,191,36,.4)', shadowBlur: 10, labelFill: '#92400e', labelFontWeight: 700 };
+      } else if (role === 'evidence') {
+        style = { fill: '#3b82f6', size: 19 + Math.min(11, wd), stroke: '#1d4ed8', lineWidth: 3, shadowColor: 'rgba(59,130,246,.35)', shadowBlur: 9, labelFill: '#1d4ed8', labelFontWeight: 700 };
+      } else {
+        style = { fill: '#f97316', size: 20 + Math.min(12, wd), stroke: '#9a3412', lineWidth: 3, labelFill: '#9a3412', labelFontWeight: 700 };
+      }
+    } else if (recallActive) {
+      // 召回发生后的非命中节点：置灰 + 短标签，让焦点集中在召回链路
+      // （不用 opacity 半透明——会连标签一起压暗导致看不清；用浅填充 + 深灰标签）
+      label = String(n.title || n.id).slice(0, 8);
+      style = { fill: '#ececec', size: Math.max(10, Math.min(20, 8 + Math.min(10, wd * 0.8))), stroke: '#f0f0f0', lineWidth: 1, opacity: 1, labelFill: '#8c8c8c' };
+    } else {
+      label = String(n.title || n.id).slice(0, labelLen);
+      style = { fill: WIKI_GROUP_COLORS[n.group] || '#1890ff', size: Math.max(12, Math.min(28, 10 + Math.min(16, wd * 1.1))), stroke: '#fff', lineWidth: 1, labelFill: '#555' };
+    }
+    // G6 v5 的 labelText 是 style 属性（node 配置顶层不生效），标签文本放数据 style 最可靠
+    style.labelText = label;
+    return {
+      id: n.id,
+      data: {
+        label: label,
+        fullTitle: String(n.title || n.id),
+        deg: wd, group: n.group, hit: !!hit, role: role, score: recallPage && recallPage.score || 0,
+      },
+      style: style,
+    };
+  });
+  var edges = (wikiGraphData.edges || []).filter(function(e) {
+    var sigs = e.signals || [];
+    var direct = sigs.indexOf('direct') >= 0 || sigs.indexOf('mutual') >= 0;
+    if (opts.hideImplicit && !direct) return false;
+    return true;
+  }).map(function(e, i) {
+    var w = e.weight || 1;
+    var sigs = e.signals || [];
+    var direct = sigs.indexOf('direct') >= 0 || sigs.indexOf('mutual') >= 0;
+    var pathHit = !!recalledEdgeIds[recallEdgeKey(e.source, e.target)];
+    var style;
+    if (pathHit) {
+      style = { stroke: '#f97316', lineWidth: Math.max(3, 1.8 + w * 0.2), opacity: 1, shadowColor: 'rgba(249,115,22,.35)', shadowBlur: 6 };
+    } else if (recallActive) {
+      style = { stroke: '#e8e8e8', lineWidth: 0.6, opacity: 0.2 }; // 召回后无关边变淡
+    } else if (w >= 6) {
+      style = { stroke: '#f5222d', lineWidth: 2.2, opacity: 0.8 };
+    } else if (w >= 3) {
+      style = { stroke: '#8c8c8c', lineWidth: 1.2, opacity: 0.6 };
+    } else {
+      style = { stroke: '#c0c0c0', lineWidth: 0.7, opacity: 0.45 };
+    }
+    if (!direct) style.lineDash = [3, 3]; // 隐式边（同源重叠/共同邻居）虚线
+    return { id: 'we' + i, source: e.source, target: e.target, style: style };
+  });
+  return { nodes: nodes, edges: edges };
+}
+
+// 创建 G6 实例：优先 d3-force（collide 硬性防重叠），失败回退经典 force
+function createWikiGraph(containerEl, height, labelLen, onNodeClick, opts) {
+  opts = opts || {};
+  var width = containerEl.clientWidth || 280;
+  var d = buildWikiGraphData(labelLen, opts);
+  var big = labelLen > 12;
+  var layouts = [
+    {
+      type: 'd3-force',
+      manyBody: { strength: big ? -450 : -380 },
+      collide: { radius: big ? 48 : 34 },
+      link: { distance: big ? 95 : 60 },
+      center: { x: width / 2, y: height / 2 },
+    },
+    { type: 'force', preventOverlap: true, nodeStrength: -300, edgeStrength: 0.15, linkDistance: 70 },
+  ];
+  var G = G6.Graph;
+  var lastErr = null;
+  for (var i = 0; i < layouts.length; i++) {
+    try {
+      var graph = new G({
+        container: containerEl.id || containerEl,
+        width: width,
+        height: height,
+        data: d,
+        layout: layouts[i],
+        node: {
+          style: {
+            labelFontSize: big ? 10.5 : 9,
+            labelPlacement: 'bottom',
+            labelOffsetY: 3,
+            labelMaxWidth: big ? 120 : 72,
+            labelWordWrap: true,
+          },
+          state: { active: { stroke: '#333', lineWidth: 3, labelFontWeight: 700 }, selected: { stroke: '#1677ff', lineWidth: 3 } },
+        },
+        edge: { style: { lineWidth: 1, opacity: 0.6 } },
+        behaviors: ['drag-canvas', 'zoom-canvas', 'drag-element', 'hover-activate'],
+        /* 有召回结果时禁用 autoFit，避免覆盖手动聚焦 zoomTo */
+        autoFit: recalledPages.length ? false : 'view',
+      });
+      graph.render();
+      /* 召回后自动聚焦到命中节点区域（类似风控智能体 focusNodes） */
+      if (recalledPages.length) {
+        var _graph = graph, _w = width, _h = height;
+        var focusDone = false;
+        var doFocus = function() {
+          if (focusDone) return; focusDone = true;
+          focusGraphNodes(_graph, _w, _h);
+        };
+        /* afterlayout 在布局完成后触发 */
+        if (_graph.on) _graph.on('afterlayout', doFocus);
+        /* 兜底：1500ms 后若还没触发 afterlayout，手动聚焦 */
+        setTimeout(doFocus, 1500);
+      }
+      if (onNodeClick) {
+        graph.on('node:click', function(evt) {
+          var id = evt && evt.target && (evt.target.id || evt.target) || null;
+          if (id && graph.setElementState) {
+            try { graph.setElementState({ [id]: ['selected'] }); } catch (e2) {}
+          }
+          onNodeClick(id);
+        });
+      }
+      return graph;
+    } catch (e) {
+      lastErr = e;
+      containerEl.innerHTML = '';
+    }
+  }
+  console.warn('[wiki-graph] 所有布局失败:', lastErr && lastErr.message);
+  return null;
+}
+
+/* 聚焦到召回节点的边界框（类似风控智能体 focusNodes）
+   G6 v5: 通过 getNodeData 获取布局坐标，用 zoomTo 平滑缩放 */
+function focusGraphNodes(graph, width, height, focusIds) {
+  try {
+    var ids = focusIds || recalledPages.map(function(p) { return p.id; });
+    if (!ids.length) return;
+    var positions = [];
+    ids.forEach(function(id) {
+      /* G6 v5: getNodeData 返回 { id, data, style: { x, y } } */
+      var raw = id;
+      try {
+        var d = graph.getNodeData(raw);
+        if (!d) d = graph.getNodeData(raw.replace(/\.md$/, ''));
+        if (!d) return;
+        var px = d.x != null ? d.x : (d.style && d.style.x != null ? d.style.x : null);
+        var py = d.y != null ? d.y : (d.style && d.style.y != null ? d.style.y : null);
+        if (px != null && py != null) positions.push({ x: px, y: py });
+      } catch(e) {}
+    });
+    if (!positions.length) return;
+    /* 命中节点过多时取前 8 个聚焦 */
+    if (positions.length > 8) positions = positions.slice(0, 8);
+    var x0 = positions.reduce(function(a,p){return Math.min(a,p.x);}, Infinity);
+    var x1 = positions.reduce(function(a,p){return Math.max(a,p.x);}, -Infinity);
+    var y0 = positions.reduce(function(a,p){return Math.min(a,p.y);}, Infinity);
+    var y1 = positions.reduce(function(a,p){return Math.max(a,p.y);}, -Infinity);
+    var pad = 80;
+    var bw = Math.max(1, x1 - x0), bh = Math.max(1, y1 - y0);
+    var k = Math.min((width - pad) / bw, (height - pad) / bh, 3.0);
+    k = Math.max(k, 0.8);
+    if (positions.length <= 3) k = Math.max(k, 1.3);
+    var cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+    /* G6 v5 zoomTo(zoom, position, duration) */
+    if (graph.zoomTo) graph.zoomTo(k, { x: cx, y: cy }, 500);
+    else if (graph.focusElement && ids.length === 1) graph.focusElement(ids[0]);
+  } catch(e) { console.warn('[wiki-graph] focusGraphNodes failed:', e); }
+}
+
+/* 更新召回实体 chips 栏 */
+function updateRecallBar() {
+  var bar = document.getElementById('recallBar');
+  if (!bar) return;
+  if (!recalledPages.length) { bar.classList.remove('active'); bar.innerHTML = ''; return; }
+  var roleNames = { seed: '种子', expanded: '扩展', evidence: '依据' };
+  bar.innerHTML = '<div class="recall-bar__title">召回 ' + recalledPages.length + ' 页（点击聚焦节点）</div>'
+    + recalledPages.map(function(page) {
+      var title = String(page.title || page.id).replace(/\.md$/, '');
+      var role = page.role || 'seed';
+      return '<span class="recall-chip role-' + escapeHtml(role) + '" data-recall-id="' + escapeHtml(page.id) + '" title="' + escapeHtml(title) + '">'
+        + escapeHtml(title.slice(0, 12)) + '</span>';
+    }).join('');
+  bar.classList.add('active');
+  bar.querySelectorAll('.recall-chip').forEach(function(chip) {
+    chip.addEventListener('click', function() {
+      var id = chip.getAttribute('data-recall-id');
+      if (wikiGraphInstance && id) focusGraphNodes(wikiGraphInstance, wikiGraphInstance.getWidth ? wikiGraphInstance.getWidth() : 280, wikiGraphInstance.getHeight ? wikiGraphInstance.getHeight() : 400, [id]);
+    });
+  });
+}
+
+var graphExpanded = false;
+
+// 按左栏剩余空间精确计算图谱高度（flex 百分比在嵌套布局下不可靠）
+// 展开态（纯图谱模式）：进度管道隐藏，图谱独占整列高度
+function computeGraphHeight() {
+  var panel = document.getElementById('sidePanel');
+  var top = document.querySelector('.side-top');
+  var head = document.querySelector('.side-graph-head');
+  var legend = document.getElementById('wikiGraphLegend');
+  if (!panel || !top) return 420;
+  var topH = graphExpanded ? 0 : (top.clientHeight || 0);
+  var used = topH + (head ? head.offsetHeight : 0) + (legend ? legend.clientHeight : 0);
+  var avail = panel.clientHeight - used - 34; // 减去 padding/margin/border 冗余
+  return Math.max(240, Math.min(avail, 620));
+}
+
+function renderWikiGraph() {
+  var el = document.getElementById('wikiGraph');
+  if (!el || !wikiGraphData || !window.G6) return;
+  if (wikiGraphInstance) { wikiGraphInstance.destroy(); wikiGraphInstance = null; }
+  el.innerHTML = '';
+  // 高度 = 左栏剩余空间（默认约 380-560px），展开后标签加长、字号加大
+  var h = computeGraphHeight();
+  el.style.height = h + 'px';
+  wikiGraphInstance = createWikiGraph(el, h, graphExpanded ? 16 : 10, function(id) { openGraphModal(id); }, { hideImplicit: true });
+  if (!wikiGraphInstance) {
+    el.innerHTML = '<div style="padding:90px 0;text-align:center;font-size:10px;color:var(--text3);">图谱渲染失败</div>';
+  }
+  renderGraphLegend();
+}
+
+// 展开左栏放大图谱（340px → 660px），完成后按新尺寸重渲染
+function toggleGraphExpand() {
+  graphExpanded = !graphExpanded;
+  var panel = document.getElementById('sidePanel');
+  var btn = document.getElementById('graphExpandBtn');
+  if (panel) panel.classList.toggle('side-expanded', graphExpanded);
+  if (btn) {
+    btn.textContent = graphExpanded ? '⛶ 收起' : '⛶ 放大';
+    btn.classList.toggle('on', graphExpanded);
+  }
+  setTimeout(function() { if (wikiGraphData) renderWikiGraph(); }, 280); // 等 CSS 宽度过渡完成
+}
+document.getElementById('graphExpandBtn').onclick = toggleGraphExpand;
+
+// 窗口尺寸变化 → 按新尺寸重渲染小图（模态框打开时不动）
+var _resizeTimer = null;
+window.addEventListener('resize', function() {
+  clearTimeout(_resizeTimer);
+  _resizeTimer = setTimeout(function() {
+    if (wikiGraphData && !document.getElementById('graphModal')) renderWikiGraph();
+  }, 200);
+});
+
+// 图例：分组颜色 + 按分数排序的可解释召回清单
+function renderGraphLegend() {
+  var legend = document.getElementById('wikiGraphLegend');
+  if (!legend) return;
+  var groupHtml = Object.keys(WIKI_GROUP_NAMES).map(function(g) {
+    return '<span class="wg-group"><span class="wg-dot" style="background:' + WIKI_GROUP_COLORS[g] + ';"></span>' + WIKI_GROUP_NAMES[g] + '</span>';
+  }).join('');
+  var pages = recalledPages.slice().sort(function(a, b) { return Number(b.score || 0) - Number(a.score || 0); });
+  var roleNames = { seed: '直接', expanded: '扩展', evidence: '依据' };
+  var recallHtml = pages.length
+    ? '<div style="margin-top:4px;"><b>本次召回 · ' + pages.length + ' 页</b><div class="recall-list">' + pages.map(function(page, index) {
+        var n = (wikiGraphData.nodes || []).filter(function(x) { return x.id === page.id; })[0];
+        var title = String(page.title || (n && n.title) || page.id);
+        var reason = page.reasons && page.reasons[0] || '任务相关知识';
+        var role = page.role || 'seed';
+        return '<button type="button" class="recall-item" data-recall-index="' + index + '" title="查看 Wiki 正文">' +
+          '<span class="recall-role ' + escapeHtml(role) + '">' + escapeHtml(roleNames[role] || '命中') + '</span>' +
+          '<span class="recall-main"><span class="recall-title">' + escapeHtml(title) + '</span><span class="recall-reason">' + escapeHtml(reason) + '</span></span>' +
+          '<span class="recall-score">' + Number(page.score || 0).toFixed(1) + '</span></button>';
+      }).join('') + '</div></div>'
+    : '<span style="color:var(--text3);">等待审阅任务点亮召回节点</span>';
+  legend.innerHTML = '<div>' + groupHtml + '</div>' + recallHtml;
+  legend.querySelectorAll('[data-recall-index]').forEach(function(item) {
+    item.addEventListener('click', function() { openRecalledPage(pages[Number(item.getAttribute('data-recall-index'))]); });
+  });
+}
+
+function clearRecallState() {
+  recalledNodes = {};
+  recalledEdgeIds = {};
+  recalledPages = [];
+  recallSignature = '';
+  updateRecallBar();
+  if (wikiGraphData) renderWikiGraph();
+  else renderGraphLegend();
+}
+
+function applyRecallPayload(pages) {
+  var nextPages = (pages || []).filter(function(page) { return page && page.id; });
+  var nextSignature = JSON.stringify(nextPages.map(function(page) {
+    return [page.id, page.role, page.score, page.path];
+  }));
+  if (nextSignature === recallSignature) return;
+  recalledNodes = {};
+  recalledEdgeIds = {};
+  recalledPages = nextPages;
+  recallSignature = nextSignature;
+  nextPages.forEach(function(page) {
+    recalledNodes[page.id] = page;
+    recalledNodes[page.id.replace(/\.md$/, '')] = page;
+    (page.path || []).slice(1).forEach(function(id, index) {
+      recalledEdgeIds[recallEdgeKey(page.path[index], id)] = true;
+    });
+  });
+  updateRecallBar();
+  if (wikiGraphData) renderWikiGraph();
+  else renderGraphLegend();
+}
+
+function highlightRecallPages(pages) {
+  applyRecallPayload(pages);
+}
+
+function openRecalledPage(page) {
+  if (!page || !page.id) return;
+  if (document.getElementById('graphModal')) showNodeDoc(page.id);
+  else openGraphModal(page.id);
+}
+
+// ── 放大模态框（大画布 + 完整标题 + 点击节点查看 markdown 文档） ──
+function openGraphModal(preloadId) {
+  if (!wikiGraphData) return;
+  if (document.getElementById('graphModal')) return;
+  var overlay = document.createElement('div');
+  overlay.id = 'graphModal';
+  var selectedSource = getSelectedKnowledgeSource();
+  var graphName = selectedSource ? selectedSource.name : selectedWikiId;
+  overlay.innerHTML =
+    '<div class="gm-box">' +
+      '<div class="gm-head"><span>🧠 ' + escapeHtml(graphName) + ' 知识图谱 · ' + wikiGraphData.nodes.length + ' 篇 wiki 文档 / ' + wikiGraphData.edges.length + ' 条引用</span>' +
+      '<button id="gmClose" title="关闭">✕</button></div>' +
+      '<div class="gm-body">' +
+        '<div id="gmCanvas"></div>' +
+        '<div class="gm-doc" id="gmDoc"><div class="gm-doc-empty">点击左侧任意节点，查看对应的 wiki markdown 文档</div></div>' +
+      '</div>' +
+      '<div class="gm-legend" id="gmLegend"></div>' +
+    '</div>';
+  document.body.appendChild(overlay);
+  document.getElementById('gmClose').onclick = closeGraphModal;
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) closeGraphModal(); });
+  var c = document.getElementById('gmCanvas');
+  modalGraphInstance = createWikiGraph(c, c.clientHeight || 560, 18, function(id) { showNodeDoc(id); });
+  document.getElementById('gmLegend').innerHTML =
+    Object.keys(WIKI_GROUP_NAMES).map(function(g) {
+      return '<span class="wg-group"><span class="wg-dot" style="background:' + WIKI_GROUP_COLORS[g] + ';"></span>' + WIKI_GROUP_NAMES[g] + '</span>';
+    }).join('') +
+    '　<span style="color:var(--red);">●</span> 本次任务召回（已点亮）　' +
+    '<span style="color:var(--text3);">实线=直接引用（粗=强关联） 虚线=隐性关联（同源/共同邻居） 点击节点读文档 · 滚轮缩放</span>';
+  if (preloadId) showNodeDoc(preloadId);
+}
+
+// 点击节点 → 读取并渲染该 markdown 文档（marked，与 Knowledge Studio 同款）
+// frontmatter 元数据渲染为顶部元数据卡片（不丢失），相关页面可点击跳转
+function showNodeDoc(id) {
+  var doc = document.getElementById('gmDoc');
+  if (!doc || !id) return;
+  var pageId = id;
+  if (!/\.md$/i.test(pageId)) {
+    var matchingNode = (wikiGraphData && wikiGraphData.nodes || []).filter(function(node) {
+      return node.id === pageId + '.md' || node.id.replace(/\.md$/, '') === pageId;
+    })[0];
+    pageId = matchingNode ? matchingNode.id : pageId + '.md';
+  }
+  doc.innerHTML = '<div class="gm-doc-empty">加载文档...</div>';
+  fetch('/api/knowledge/doc-review-agent/wiki-page?wikiId=' + encodeURIComponent(selectedWikiId) + '&page=' + encodeURIComponent(pageId))
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (!d || !d.content) { doc.innerHTML = '<div class="gm-doc-empty">文档不存在或为空</div>'; return; }
+      var body = d.content.replace(/^---[\s\S]*?---\n*/, ''); // 正文剥 frontmatter
+      var metaHtml = buildMetaCard(d.content);
+      if (window.marked) {
+        doc.innerHTML = metaHtml + marked.parse(body);
+      } else {
+        doc.innerHTML = metaHtml + '<pre style="white-space:pre-wrap;font-family:monospace;font-size:11px;">' + escapeHtml(body) + '</pre>';
+      }
+    })
+    .catch(function() { doc.innerHTML = '<div class="gm-doc-empty">加载失败</div>'; });
+}
+
+// frontmatter → 元数据卡片（来源/文种/状态/版本/最后审查 + 相关页面链接）
+function buildMetaCard(content) {
+  var fmM = content.match(/^---\n([\s\S]*?)\n---/);
+  if (!fmM) return '';
+  var meta = {};
+  fmM[1].split('\n').forEach(function(l) {
+    var m = l.match(/^([\w-]+):\s*(.+)$/);
+    if (m) meta[m[1]] = m[2].trim();
+  });
+  var plain = function(v) {
+    return escapeHtml(String(v).replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, function(_, t, label) { return label || t; }));
+  };
+  var fields = [
+    ['type', '类型'], ['category', '分类'], ['doc_type', '文种'], ['status', '状态'],
+    ['source_layer', '来源层级'], ['source', '依据'], ['version', '版本'],
+    ['last_reviewed', '最后审查'], ['superseded_by', '已被取代'],
+    ['default_profile', '默认档案'], ['fallback_profile', '兜底档案'],
+  ];
+  var rows = fields.filter(function(f) { return meta[f[0]]; }).map(function(f) {
+    var v = plain(meta[f[0]]);
+    if (f[0] === 'status') {
+      var cls = meta[f[0]] === 'superseded' ? 'color:var(--red);' : (meta[f[0]] === 'ready' ? 'color:var(--green);' : '');
+      v = '<span style="' + cls + '">' + v + '</span>';
+    }
+    return '<div class="gm-meta-row"><span>' + f[1] + '</span><b>' + v + '</b></div>';
+  });
+  var html = rows.length ? '<div class="gm-meta">' + rows.join('') + '</div>' : '';
+  var relLinks = (meta.related || '').match(/\[\[([^\]]+)\]\]/g) || [];
+  if (relLinks.length) {
+    html += '<div class="gm-rel">相关页面：' + relLinks.map(function(l) {
+      var mm = l.match(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/);
+      if (!mm) return '';
+      var t = mm[1], label = mm[2] || mm[1];
+      return '<a href="javascript:void(0)" onclick="showNodeDoc(\'' + escapeHtml(t) + '\')">' + escapeHtml(label) + '</a>';
+    }).join('') + '</div>';
+  }
+  return html;
+}
+
+function closeGraphModal() {
+  var overlay = document.getElementById('graphModal');
+  if (modalGraphInstance) { modalGraphInstance.destroy(); modalGraphInstance = null; }
+  if (overlay) overlay.remove();
+}
+
+// 初始化为文本审阅模式
+setPipeMode('text');
+initKnowledgeSources();
+</script>
+</body>
+</html>

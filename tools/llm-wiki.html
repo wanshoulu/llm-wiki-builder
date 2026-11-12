@@ -2,19 +2,19 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<title>LLM Wiki 工具 | llm-wiki-builder</title>
+<title>LLM Wiki 工具 | AI Harbor</title>
 <style>
 :root {
-  --bg: #f4f6f8;
-  --panel: #ffffff;
-  --line: #e5e7eb;
-  --text: #1f2937;
-  --muted: #6b7280;
-  --blue: #2878b5;
-  --green: #16a34a;
-  --amber: #d97706;
-  --red: #dc2626;
-  --purple: #7c3aed;
+  --bg: #0d1117;
+  --panel: #161b22;
+  --line: #30363d;
+  --text: #e6edf3;
+  --muted: #8b949e;
+  --blue: #58a6ff;
+  --green: #3fb950;
+  --amber: #d29922;
+  --red: #f85149;
+  --purple: #a371f7;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
@@ -1179,7 +1179,7 @@ function renderGraph(data) {
       border: n.level <= 1 ? '#fff' : getNodeColor(n)
     },
     size: n.level <= 1 ? 20 : (n.level <= 2 ? 12 : 8),
-    font: { size: n.level <= 1 ? 14 : 10, color: '#1f2937' }
+    font: { size: n.level <= 1 ? 14 : 10, color: '#e6edf3' }
   })));
 
   const edges = new vis.DataSet(data.edges.map(e => ({
@@ -1212,10 +1212,10 @@ function renderGraph(data) {
 
 function getNodeColor(node) {
   const colors = {
-    '概念': '#2878b5',
-    '代码': '#16a34a',
-    '文档': '#d97706',
-    '配置': '#7c3aed'
+    '概念': '#58a6ff',
+    '代码': '#3fb950',
+    '文档': '#d29922',
+    '配置': '#a371f7'
   };
   return colors[node.type] || '#768390';
 }

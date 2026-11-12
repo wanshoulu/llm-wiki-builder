@@ -7,11 +7,11 @@
  */
 (function () {
   'use strict';
-  var HOME = (typeof window.GB_HOME === 'string' && window.GB_HOME) || '/builder';
+  var HOME = (typeof window.GB_HOME === 'string' && window.GB_HOME) || '/tools/llm-wiki.html';
   var APPS = [
+    { href: '/tools/llm-wiki.html', label: 'Wiki 工作台' },
     { href: '/tools/knowledge-qa.html', label: '知识问答' },
-    { href: '/tools/credit-risk-agent.html', label: '信贷风控' },
-    { href: '/tools/schedule-agent.html', label: '日程管理' },
+    { href: '/tools/doc-review-agent.html', label: '公文审核' },
   ];
   var mount = document.getElementById('gb-appbar');
   if (!mount) return;
