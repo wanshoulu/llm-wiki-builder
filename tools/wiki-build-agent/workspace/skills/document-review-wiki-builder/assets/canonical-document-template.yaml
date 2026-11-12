@@ -1,0 +1,18 @@
+document:
+  source_id: SRC-001
+  file_format: docx
+  checksum:
+  title:
+  issuer_organization_id:
+content_units:
+  - content_unit_id: UNIT-001
+    type: paragraph
+    hierarchy_path: []
+    text:
+    location: {page: null, paragraph: null}
+    extraction_method: native
+    confidence:
+relationships: []
+quality:
+  status: pending_review
+  warnings: []

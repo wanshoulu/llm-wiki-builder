@@ -1,0 +1,19 @@
+sources:
+  - source_id: SRC-001
+    title: 待登记来源
+    source_level: enterprise
+    authority_level:
+    overlay_behavior: supplement
+    conflict_strategy: pending_review
+    issuer_organization_id: ORG-HO-OFFICE
+    authority_class: internal-policy
+    file_format: docx
+    version:
+    checksum:
+    effective_date:
+    expiry_date:
+    status: pending_review
+    confidentiality: internal
+    owner_role:
+    content_unit_ids: []
+

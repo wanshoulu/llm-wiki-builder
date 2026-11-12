@@ -1,0 +1,25 @@
+{
+  "id": "document-review",
+  "label": "公文审核 Wiki",
+  "description": "基于国家/行业规范与企业制度、模板构建可追溯的企业公文审核知识库",
+  "skill_name": "document-review-wiki-builder",
+  "is_default": false,
+  "mentions": [
+    "@document-review-wiki-builder",
+    "@公文审核Wiki构建器",
+    "@公文审核wiki"
+  ],
+  "prompts": {
+    "schema": "prompts/wiki-schema.md",
+    "update": "prompts/wiki-update.md",
+    "index": "prompts/wiki-index.md",
+    "topic": "prompts/wiki-topic.md"
+  },
+  "minimum_topics": 1,
+  "coverage_targets": [
+    "通知", "请示", "报告", "批复", "函", "纪要", "决定", "通报"
+  ],
+  "include_source_in_topic_generation": true,
+  "validator": "scripts/validate_wiki.py",
+  "publisher": "scripts/compile_agent_projection.py"
+}

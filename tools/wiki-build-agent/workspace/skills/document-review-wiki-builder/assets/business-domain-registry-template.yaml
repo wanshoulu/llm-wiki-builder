@@ -1,0 +1,6 @@
+business_domains:
+  - business_domain_id: DOMAIN-GENERAL
+    name: 通用
+    parent_id:
+    aliases: []
+    status: active

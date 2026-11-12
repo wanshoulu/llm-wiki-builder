@@ -1,0 +1,13 @@
+organizations:
+  - organization_id: ORG-ALL
+    name: 全行
+    organization_type: enterprise
+    parent_id:
+    aliases: []
+    status: active
+  - organization_id: ORG-HO-OFFICE
+    name: 总行办公室
+    organization_type: head-office-department
+    parent_id: ORG-ALL
+    aliases: []
+    status: active

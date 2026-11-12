@@ -95,13 +95,16 @@ llm-wiki-builder/
 │   ├── knowledge-studio.js      # Wiki+RAG 主体（从单体合并版取子集，69 端点中分发 wiki 相关 ~40）
 │   ├── knowledge-studio-lite.js # 知识问答页两端点精简版（pages/get 兜底）
 │   ├── knowledge-builder-wiki-*.js  # 库 CRUD / 构建运行 / 评审 / 存储层（4 文件）
+│   ├── knowledge-qa-api.js     # 知识问答应用端点（GraphRAG/图谱问答/模型列表）
 │   └── knowledge-builder-runtime.js # 构建运行时（181 KB，懒加载）
 ├── tools/
 │   ├── llm-wiki-engine.js       # 核心引擎（105 KB：Scanner/Engine/Graph/CrossLink/Maintainer/Search）
 │   ├── rag-engine.js / chunker.js          # RAG 分块与向量检索
 │   ├── wiki-graph-builder.js / wiki-manifest-index.js   # 图谱化与清单索引
 │   ├── knowledge-wiki-qa-service.js / knowledge-rag-answer-service.js  # 问答服务
-│   └── *.html ×6 + vendor/      # 前端页面（vis-network/G6 本地化）
+│   ├── knowledge-qa-agent/     # Python 问答 Agent（OpenJiuwen DeepAgent + 5 图谱工具，:8100，可选进程）
+│   ├── wiki-build-agent/       # Python 构建引擎（FastAPI + skills + SSE 8 事件契约，可选进程）
+│   └── *.html ×8 + vendor/     # 前端页面 ×8（vis-network/G6/marked/phosphor 全本地化）
 ├── scripts/                     # graph-generator 链（图谱化 LLM 生成）
 ├── wiki/                        # 演示种子 3 库 54 页（doc-rules / work-assistant / llm-agent）
 ├── data/                        # knowledge-builder 运行数据（gitignore 生成物）
@@ -128,7 +131,8 @@ llm-wiki-builder/
 
 | 版本 | 说明 |
 |------|------|
-| **1.1.0**（当前） | 补齐 AI Harbor「AI 知识」区两个 Agent 应用：知识问答（GraphRAG + qa-agent 代理通道）与公文审核（规则+LLM 双通道 9 端点）；前端恢复单体原版设计（深浅双主题并存是原设计特性）；phosphor 图标与 appbar 顶栏补齐 |
+| **1.1.1**（当前） | 全面复审补漏：继承 wiki-build-agent（66 文件 Python 构建引擎，FastAPI + skills + SSE 8 事件契约）与 knowledge-qa-agent（12 文件 Python 问答 Agent，OpenJiuwen DeepAgent）；marked/G6 CDN 本地化（离线完备）；修复 qa-api 未接管网址挂起 bug（秒回 404） |
+| 1.1.0 | 补齐 AI Harbor「AI 知识」区两个 Agent 应用：知识问答（GraphRAG + qa-agent 代理通道）与公文审核（规则+LLM 双通道 9 端点）；前端恢复单体原版设计（深浅双主题并存是原设计特性）；phosphor 图标与 appbar 顶栏补齐 |
 | 1.0.0 | 从 AI Harbor Knowledge Studio 剥离 wiki+RAG 子集：6 前端页、CDN 本地化；修复源仓自带的 standalone 模板字符串转义笔误（6 处语法错误）；演示种子 3 库 54 页；六页无头浏览器实测 0 异常 |
 
 ## 许可证

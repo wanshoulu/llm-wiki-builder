@@ -1,0 +1,103 @@
+{
+  "skill_name": "document-review-wiki-builder",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "根据附件中的《党政机关公文处理工作条例》、GB/T 9704 和我司公文管理办法，先构建通知、请示、报告、批复、函、纪要、决定、通报八类公文审核 Wiki。企业规则如果和国家强制要求冲突要单独列出。",
+      "expected_output": "生成四层来源登记、八类高频文种知识结构、规则证据链和显式冲突清单，不发布未确认规则。",
+      "expectations": ["有证据的文种才建页", "企业规则不能覆盖国家强制要求", "缺失证据进入知识缺口"],
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "把新版企业发文模板增量更新到现有公文审核 Wiki，旧模板仍要保留历史关联，不能把案例直接升级成规则。",
+      "expected_output": "执行 Update 模式，保留稳定 ID 和 supersedes 关系，案例只关联规则并输出待审批变更。",
+      "expectations": ["保留现有页面", "保留历史关联", "不把案例升级为规则"],
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "校验这套公文审核知识库并生成给现有审核 Agent 使用的发布目录，只允许发布清单内的规则进入运行时。",
+      "expected_output": "执行 Validate 和 Publish，阻止草稿进入投影，生成 _common/doc-types/style/lexicon 与投影清单。",
+      "expectations": ["草稿不进入运行时投影", "输出可追溯发布清单"],
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "当前材料只有请示管理办法，请构建公文审核 Wiki；不要补写材料没有涉及的其他文种。",
+      "expected_output": "只为请示及有证据的通用审核点建页，其余高频文种进入知识缺口。",
+      "expectations": ["不虚构七类文种规则", "至少生成一个有效页面", "列出知识缺口"],
+      "files": []
+    },
+    {
+      "id": 5,
+      "prompt": "用新版请示模板更新现有 Wiki，必须保留现有通知审核页和全部稳定关系，只增量修订有证据的内容。",
+      "expected_output": "输出完整新 SCHEMA，保留现有页面与关系，并仅更新新版模板明确影响的请示规则。",
+      "expectations": ["保留现有通知审核页", "不得静默删页", "输出完整 SCHEMA"],
+      "files": []
+    },
+    {
+      "id": 6,
+      "prompt": "我一次性上传了 12 份公文相关制度文件（含国家条例、行业标准、企业制度和历史案例），全部用来构建公文审核 Wiki。文件内容很长，请确保 Schema 不要截断丢失文种。",
+      "expected_output": "检测到 Schema 输出达到 token 上限或缺少结束标记时触发续写机制，续写后复检 Schema 完整性；若声明 topics 数与实际解析 📄 数不一致则发出警告。公文审核模式下若仍截断则抛出结构化生成错误并停止，原始材料不被覆盖。",
+      "expectations": ["检测到 Schema 截断时触发续写或报错", "续写后复检不仍截断", "声明 topics 数与实际 📄 页面数一致", "截断失败时不覆盖已有产物"],
+      "files": []
+    },
+    {
+      "id": 7,
+      "prompt": "公文审核 Wiki 已构建完成，但我发现页面之间的交叉引用很少，很多有明确概念关联的页面没有互相引用。请运行交叉引用修复，补充缺失的引用，但不要删除已有的引用。",
+      "expected_output": "执行 wiki_cross_ref_fix，分析页面间的语义关联、标签匹配和层级关系，补充缺失的交叉引用，保留已有引用，每对页面间最多一条引用，输出修复后的完整 SCHEMA 含 ## 交叉引用 区域。",
+      "expectations": ["保留已有交叉引用", "补充语义关联的缺失引用", "每对页面间最多一条引用", "输出含交叉引用区域的完整 SCHEMA"],
+      "files": []
+    },
+    {
+      "id": 8,
+      "prompt": "Wiki 里有些页面标签写的是'AI'，有些写的是'人工智能'，还有'发文'和'发文管理'混用的情况。请优化标签体系，统一命名并检查覆盖均衡性。",
+      "expected_output": "执行 wiki_tag_optimize，输出 JSON 包含 tag_stats（标签统计）、merge_suggestions（如 AI→人工智能、发文→发文管理的合并建议）、add_suggestions（为标签稀疏页面补充标签）和 overall_score。",
+      "expectations": ["识别语义相同的标签并给出合并建议", "统计每个标签的页面数和分布", "为标签稀疏页面补充缺失标签", "输出包含 overall_score 的 JSON"],
+      "files": []
+    },
+    {
+      "id": 9,
+      "prompt": "上一轮评测发现有 3 个公文审核页面正文不完整、缺少判断方法章节，请把这些 badcase 回流为修复任务：先归因失败原因，再针对性修复，最后复测验证修复是否通过。",
+      "expected_output": "对每个失败样本执行归因分析（如模型只输出推理内容、token 截断、超时），生成定向修复指令重试，修复后复测页面正文满足最小字符数和 frontmatter 完整性要求，形成归因→修复→复测闭环报告。",
+      "expectations": ["对每个 badcase 给出归因分析", "针对性修复而非整体重建", "复测验证修复后页面正文有效", "输出闭环报告含归因、修复动作和复测结果"],
+      "files": []
+    },
+    {
+      "id": 10,
+      "prompt": "现有公文审核 Wiki 已有通知和请示两个文种的审核页。我现在依次追加报告管理办法和函管理办法两份文件，做两次增量更新，每次都要保留之前所有已有页面。",
+      "expected_output": "连续执行两次增量更新：第一次追加报告相关页面并保留通知+请示页面，第二次追加函相关页面并保留通知+请示+报告页面。每次更新后 validate_document_review_schema 校验现有页面无遗漏。",
+      "expectations": ["第一次增量后保留通知和请示页面", "第二次增量后保留通知、请示和报告页面", "每次更新都校验不遗漏已有页面", "两次更新后 topics 数递增且无页面丢失"],
+      "files": []
+    },
+    {
+      "id": 11,
+      "prompt": "我上传了一份超长的企业公文管理制度汇编（超过 8000 tokens），里面涵盖发文格式、行文规则、审批流程等大量条款。请构建公文审核 Wiki，确保大文档不会导致页面内容缺失。",
+      "expected_output": "大文档构建时 Schema 生成可能触发截断续写，正文生成对每个页面单独调用 LLM 并传入 raw 源材料；若单页正文因 token 上限不完整，定向纠错重试；最终所有生成页面满足最小字符数和 YAML frontmatter 完整性要求。",
+      "expectations": ["大文档不导致页面正文缺失", "每页正文满足最小字符数要求", "每页含完整 YAML frontmatter", "截断时触发续写或定向纠错重试"],
+      "files": []
+    },
+    {
+      "id": 12,
+      "prompt": "用 generic 通用 Wiki 配置，把这份《企业知识管理规范》构建成一个通用知识库，不需要公文审核专用结构，用 entities 和 concepts 组织页面即可，至少 10 个主题。",
+      "expected_output": "使用 generic profile 构建，采用 entities/concepts 目录结构，minimum_topics 为 10，Schema 生成支持截断续写（最多两轮），页面正文生成传入 raw 源材料可标注出处。",
+      "expectations": ["使用 generic 而非 document-review 配置", "目录使用 entities/concepts 结构", "生成主题数不少于 10", "Schema 截断时触发自动续写"],
+      "files": []
+    },
+    {
+      "id": 13,
+      "prompt": "之前用 generic 配置构建的通用 Wiki 已有 12 个页面，现在追加一份《企业安全规范》做增量更新。确保更新后原有页面不遗漏，Schema 不截断。",
+      "expected_output": "generic 模式增量更新：加载已有 Schema，合并新文档生成完整新 Schema。generic 模式不调用 validate_document_review_schema，但截断时触发续写（最多两轮），续写后复检完整性。原有页面全部保留。",
+      "expectations": ["保留原有 12 个页面", "generic 模式增量更新不遗漏页面", "Schema 截断时自动续写", "新增安全规范相关页面"],
+      "files": []
+    },
+    {
+      "id": 14,
+      "prompt": "部分公文审核条目缺少原文证据或效力信息，无法确认适用范围。请把这些条目标记为 pending_review，不要发布它们，并生成待审批清单供人工 approve 或 reject。",
+      "expected_output": "缺失证据的条目状态设为 pending_review，不进入发布清单；模型不自行设置为 published；生成待审批清单列出条目 ID、缺失原因和待确认项，供外部审批流程 approve 或 reject。",
+      "expectations": ["缺失证据条目状态为 pending_review", "模型不自行设为 published", "待审批清单含条目 ID 和缺失原因", "pending_review 条目不进入运行时投影"],
+      "files": []
+    }
+  ]
+}

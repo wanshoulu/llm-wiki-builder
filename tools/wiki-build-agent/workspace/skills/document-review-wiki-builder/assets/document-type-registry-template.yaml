@@ -1,0 +1,66 @@
+document_types:
+  - document_type_id: DOC-TYPE-NOTICE
+    canonical_name: 通知
+    runtime_doc_type: notice
+    aliases: [工作通知, 会议通知]
+    category: 法定公文
+    direction: downward
+    format_profile: enterprise
+    status: active
+  - document_type_id: DOC-TYPE-REQUEST
+    canonical_name: 请示
+    runtime_doc_type: request
+    aliases: [请示件]
+    category: 法定公文
+    direction: upward
+    format_profile: enterprise
+    status: active
+  - document_type_id: DOC-TYPE-REPORT
+    canonical_name: 报告
+    runtime_doc_type: report
+    aliases: [工作报告, 情况报告]
+    category: 法定公文
+    direction: upward
+    format_profile: enterprise
+    status: active
+  - document_type_id: DOC-TYPE-REPLY
+    canonical_name: 批复
+    runtime_doc_type: reply
+    aliases: [批复件]
+    category: 法定公文
+    direction: downward
+    format_profile: enterprise
+    status: active
+  - document_type_id: DOC-TYPE-LETTER
+    canonical_name: 函
+    runtime_doc_type: letter
+    aliases: [商洽函, 复函]
+    category: 法定公文
+    direction: parallel
+    format_profile: enterprise
+    status: active
+  - document_type_id: DOC-TYPE-MINUTES
+    canonical_name: 纪要
+    runtime_doc_type: minutes
+    aliases: [会议纪要, 专题会纪要]
+    category: 法定公文
+    direction: internal
+    format_profile: enterprise
+    status: active
+  - document_type_id: DOC-TYPE-DECISION
+    canonical_name: 决定
+    runtime_doc_type: decision
+    aliases: [表彰决定, 处分决定]
+    category: 法定公文
+    direction: downward
+    format_profile: enterprise
+    status: active
+  - document_type_id: DOC-TYPE-CIRCULAR
+    canonical_name: 通报
+    runtime_doc_type: circular
+    aliases: [情况通报, 表彰通报, 批评通报]
+    category: 法定公文
+    direction: downward
+    format_profile: enterprise
+    status: active
+

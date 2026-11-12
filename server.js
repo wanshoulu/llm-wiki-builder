@@ -133,7 +133,8 @@ const server = http.createServer((req, res) => {
   }
   // 1c. 知识问答应用端点（wiki 图谱问答 / GraphRAG 检索）
   if (p.startsWith('/api/knowledge-qa/')) {
-    return handleKnowledgeQARequest(req, res);
+    if (handleKnowledgeQARequest(req, res)) return;
+    return sendJson(res, 404, { ok: false, error: 'NOT_FOUND', path: p }); // qa-api 未接管的路径快速 404，不挂起
   }
   // 2. Wiki 主体端点（projects/pages/ingest/graph/qa/search/raw/rag/queue/watcher + doc-review-agent 公文审核 9 端点 + llm-wiki 兼容别名在 studio 内部处理）
   //    studio-lite 只是单体「知识问答页」的两端点精简版（其 store 指向 data/wiki），这里仅作 pages/get 的兜底

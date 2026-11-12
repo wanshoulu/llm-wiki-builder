@@ -1,0 +1,32 @@
+rule_id: RULE-UNASSIGNED
+source:
+  source_id:
+  clause_id:
+  content_unit_id:
+source_level: enterprise
+authority_level:
+overlay_behavior: supplement
+conflict_strategy: pending_review
+rule_type: mandatory-rule
+normative_text:
+effect:
+  authority_class:
+  requirement_level: mandatory
+  effective_from:
+  effective_to:
+scope:
+  organization_ids: []
+  excluded_organization_ids: []
+  inheritance: explicit
+  document_type_ids: []
+  direction:
+  business_domain_ids: []
+  conditions: []
+decision:
+  result: manual_review
+  issue_type:
+exceptions: []
+relationships: []
+execution_mode: hybrid
+status: draft
+

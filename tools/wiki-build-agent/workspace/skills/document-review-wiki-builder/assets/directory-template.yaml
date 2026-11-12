@@ -1,0 +1,38 @@
+wiki:
+  title: 企业公文审核 LLM Wiki
+  version: 1.0.0-draft
+  status: draft
+  domains:
+    - id: document-type-and-format
+      title: 文种与格式知识
+      path: 01-document-type-and-format
+    - id: language-expression
+      title: 语言表达知识
+      path: 02-language-expression
+    - id: content-structure
+      title: 内容结构知识
+      path: 03-content-structure
+    - id: policy-and-regulation
+      title: 制度政策知识
+      path: 04-policy-and-regulation
+    - id: business-domain
+      title: 业务领域知识
+      path: 05-business-domain
+    - id: history-and-cases
+      title: 历史公文与审核案例
+      path: 06-history-and-cases
+  indexes:
+    - by-document-type
+    - by-review-dimension
+    - by-business-domain
+    - by-source
+    - by-version
+  governance:
+    organization_registry: governance/organization-registry.yaml
+    document_type_registry: governance/document-type-registry.yaml
+    business_domain_registry: governance/business-domain-registry.yaml
+    source_register: governance/source-register.yaml
+    release_manifest: governance/release-manifest.yaml
+  structured_assets:
+    canonical_documents: sources/canonical-documents
+    rules: rules
