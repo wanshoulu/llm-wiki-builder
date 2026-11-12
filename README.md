@@ -10,7 +10,7 @@
 
 - **问题域**：知识散落在代码注释、Word 文档、群聊记录里——人找知识靠翻文件，Agent 找知识没有结构化入口。直接把文档喂给大模型，上下文放不下、检索不精准、更新不同步。
 - **方案机制**：**LLM Wiki 引擎**（ProjectScanner 扫描项目 → WikiEngine 生成页面 → CrossLinker 补 `[[双链]]` → WikiMaintainer 增量维护）、**Wiki 图谱化**（WikiGraphBuilder 从页面抽取实体与关系，vis-network 可视化）、**RAG 引擎**（chunker 分块 + 向量检索 + 图谱融合检索 GraphRAG）、**三级问答**（向量召回 → 图谱增强 → LLM 裁决）。
-- **交付物**：`server.js` 单服务入口（默认 :3014）、4 组 API 路由族（约 90 端点含兼容别名）、6 个单文件工具页、105 KB 的 `llm-wiki-engine.js` 核心引擎、演示种子 3 库 54 页、测试套件。
+- **交付物**：`server.js` 单服务入口（默认 :3014）、4 组 API 路由族（约 90 端点含兼容别名）、**8 个单文件前端页**（含知识问答、公文审核两个 Agent 应用）、105 KB 的 `llm-wiki-engine.js` 核心引擎、**两个可选 Python Agent 进程**（wiki-build-agent 构建引擎 66 文件 / knowledge-qa-agent 问答 Agent 12 文件）、演示种子 3 库 54 页、测试套件。
 - **状态**：从 AI Harbor 单体的 Knowledge Studio 剥离（wiki+RAG 端点子集），代码对齐宿主最新版。默认 `127.0.0.1:3014` + `SKIP_AUTH=true`，面向本机/内网；**不是生产就绪服务**，对外暴露前必须换认证。
 
 > 写法参考（实调原文）：[Ollama](https://github.com/ollama/ollama) 的「2 行跑起来」、[Prometheus](https://github.com/prometheus/prometheus) 的「一段简介 + 加粗机制名清单」。风格与同系列仓库 [graph-builder](https://github.com/wanshoulu/graph-builder)（图谱构建 + RSI 进化）、ai-native-bank、Model-Builder 保持一致。
